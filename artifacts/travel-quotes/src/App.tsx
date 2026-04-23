@@ -1,0 +1,491 @@
+import { useState, useRef, useEffect } from "react";
+import type { AdvisorProfile, Hotel, ParsedQuotes, TripDetails } from "./types";
+import { buildOnePager } from "./lib/onePager";
+
+const PROFILE_KEYS = ["adv-name", "adv-agency", "adv-phone", "adv-email"] as const;
+
+function loadProfile(): AdvisorProfile {
+  return {
+    name: localStorage.getItem("adv-name") ?? "",
+    agency: localStorage.getItem("adv-agency") ?? "",
+    phone: localStorage.getItem("adv-phone") ?? "",
+    email: localStorage.getItem("adv-email") ?? "",
+  };
+}
+
+function saveProfileField(key: string, value: string) {
+  localStorage.setItem(key, value);
+}
+
+export default function App() {
+  const [profile, setProfile] = useState<AdvisorProfile>(loadProfile);
+  const [trip, setTrip] = useState<TripDetails>({
+    destination: "",
+    dates: "",
+    adults: "2",
+    nights: "5",
+    clients: "",
+  });
+  const [rawText, setRawText] = useState("");
+  const [parsing, setParsing] = useState(false);
+  const [parseError, setParseError] = useState("");
+  const [parsedData, setParsedData] = useState<ParsedQuotes | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+
+  const hotelSectionRef = useRef<HTMLDivElement>(null);
+  const previewSectionRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  useEffect(() => {
+    const saved = loadProfile();
+    setProfile(saved);
+  }, []);
+
+  function updateProfile(field: keyof AdvisorProfile, value: string) {
+    setProfile((p) => ({ ...p, [field]: value }));
+    saveProfileField(`adv-${field}`, value);
+  }
+
+  async function parseQuotes() {
+    if (!rawText.trim()) {
+      alert("Please paste your quote text first.");
+      return;
+    }
+    setParsing(true);
+    setParseError("");
+    setParsedData(null);
+    setSelectedIndex(null);
+
+    try {
+      const res = await fetch("/api/parse-quotes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rawText, tripDetails: trip }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error ?? "Failed to parse");
+
+      setParsedData(data);
+
+      // Auto-select advisor's pick
+      const pickIndex = data.hotels.findIndex((h: Hotel) => h.advisorPick);
+      if (pickIndex !== -1) setSelectedIndex(pickIndex);
+
+      setTimeout(() => {
+        hotelSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
+    } catch (err: unknown) {
+      setParseError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setParsing(false);
+    }
+  }
+
+  function generatePreview() {
+    if (selectedIndex === null || !parsedData) {
+      alert("Please select a hotel first.");
+      return;
+    }
+
+    const adv: AdvisorProfile = {
+      name: profile.name || "Your Advisor",
+      agency: profile.agency || "Travel Advisory",
+      phone: profile.phone,
+      email: profile.email,
+    };
+    const tripData: TripDetails = {
+      destination: trip.destination || "Your Destination",
+      dates: trip.dates,
+      adults: trip.adults || "2",
+      nights: trip.nights || "5",
+      clients: trip.clients || "Valued Client",
+    };
+
+    const selected = parsedData.hotels[selectedIndex];
+    const others = parsedData.hotels.filter((_, i) => i !== selectedIndex);
+    const html = buildOnePager(adv, tripData, selected, others, parsedData.advisorNote);
+    setPreviewHtml(html);
+
+    setTimeout(() => {
+      previewSectionRef.current?.scrollIntoView({ behavior: "smooth" });
+      if (iframeRef.current) {
+        iframeRef.current.srcdoc = html;
+        iframeRef.current.onload = () => {
+          const h = iframeRef.current?.contentDocument?.body?.scrollHeight;
+          if (h && iframeRef.current) {
+            iframeRef.current.style.height = Math.max(h + 30, 700) + "px";
+          }
+        };
+      }
+    }, 100);
+  }
+
+  function printPreview() {
+    if (!previewHtml) return;
+    const win = window.open("", "_blank");
+    if (!win) return;
+    win.document.write(previewHtml);
+    win.document.close();
+    win.onload = () => win.print();
+  }
+
+  const goldBorder = "rgba(201, 151, 58, 0.2)";
+
+  return (
+    <div style={{ backgroundColor: "#f5f0e8", minHeight: "100vh", fontFamily: "'DM Sans', sans-serif", color: "#1a1a1a" }}>
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: "2rem 1.5rem 4rem" }}>
+
+        {/* Header */}
+        <header style={{ textAlign: "center", marginBottom: "2.5rem" }}>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "2rem", color: "#0a1f2e", letterSpacing: "0.15em", fontWeight: 500 }}>
+            Se7en <span style={{ color: "#c9973a" }}>Seas</span> Advisory
+          </div>
+          <div style={{ fontSize: 12, letterSpacing: "0.2em", textTransform: "uppercase", color: "#6b7280", marginTop: 4 }}>
+            Quote Generator
+          </div>
+        </header>
+
+        {/* Advisor Profile */}
+        <Card title="Advisor Profile">
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+            <Field label="Your Name">
+              <Input value={profile.name} onChange={(v) => updateProfile("name", v)} placeholder="Monique Robinson" />
+            </Field>
+            <Field label="Agency Name">
+              <Input value={profile.agency} onChange={(v) => updateProfile("agency", v)} placeholder="Se7en Seas Advisory" />
+            </Field>
+            <Field label="Phone / Text">
+              <Input value={profile.phone} onChange={(v) => updateProfile("phone", v)} placeholder="+1.585.503.1066" />
+            </Field>
+            <Field label="Email">
+              <Input value={profile.email} onChange={(v) => updateProfile("email", v)} placeholder="monique@sevenseas.com" type="email" />
+            </Field>
+          </div>
+          <p style={{ fontSize: 12, color: "#6b7280", marginTop: "0.75rem" }}>
+            Your profile saves automatically in the browser — only enter this once.
+          </p>
+        </Card>
+
+        {/* Trip Details */}
+        <Card title="Trip Details">
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+            <Field label="Destination">
+              <Input value={trip.destination} onChange={(v) => setTrip((t) => ({ ...t, destination: v }))} placeholder="Jamaica" />
+            </Field>
+            <Field label="Travel Dates">
+              <Input value={trip.dates} onChange={(v) => setTrip((t) => ({ ...t, dates: v }))} placeholder="December 10–15, 2025" />
+            </Field>
+            <Field label="Number of Adults">
+              <Input value={trip.adults} onChange={(v) => setTrip((t) => ({ ...t, adults: v }))} placeholder="2" type="number" />
+            </Field>
+            <Field label="Number of Nights">
+              <Input value={trip.nights} onChange={(v) => setTrip((t) => ({ ...t, nights: v }))} placeholder="5" type="number" />
+            </Field>
+            <Field label="Client Name(s)">
+              <Input value={trip.clients} onChange={(v) => setTrip((t) => ({ ...t, clients: v }))} placeholder="Geri & Guest" />
+            </Field>
+          </div>
+        </Card>
+
+        {/* Paste Quotes */}
+        <Card title="Paste Raw Quote">
+          <Field label="Paste your quote text here — email, GDS output, notes, anything">
+            <textarea
+              value={rawText}
+              onChange={(e) => setRawText(e.target.value)}
+              placeholder="Paste the full quote text from your system, email, or notes here. Claude will automatically extract each hotel option, pricing, highlights, and your recommendation..."
+              style={{
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: 14,
+                color: "#1a1a1a",
+                backgroundColor: "#f5f0e8",
+                border: `1px solid ${goldBorder}`,
+                borderRadius: 7,
+                padding: "10px 12px",
+                outline: "none",
+                resize: "vertical",
+                minHeight: 160,
+                lineHeight: 1.6,
+                width: "100%",
+                transition: "border-color 0.2s",
+              }}
+              onFocus={(e) => { e.target.style.borderColor = "#c9973a"; e.target.style.backgroundColor = "#fff"; }}
+              onBlur={(e) => { e.target.style.borderColor = goldBorder; e.target.style.backgroundColor = "#f5f0e8"; }}
+            />
+          </Field>
+          <div style={{ display: "flex", gap: 10, marginTop: "1rem", flexWrap: "wrap" }}>
+            <button
+              onClick={parseQuotes}
+              disabled={parsing}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 8,
+                padding: "12px 24px", borderRadius: 8,
+                fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 500,
+                cursor: parsing ? "not-allowed" : "pointer", border: "none",
+                transition: "all 0.2s", letterSpacing: "0.03em",
+                background: "#0a1f2e", color: "#fff",
+                opacity: parsing ? 0.5 : 1,
+              }}
+            >
+              {parsing ? (
+                <>
+                  <div className="spinner" />
+                  Parsing...
+                </>
+              ) : "✨ Parse & Extract Hotels"}
+            </button>
+          </div>
+
+          {parsing && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: "#6b7280", padding: "12px 16px", background: "#f5f0e8", borderRadius: 8, marginTop: "1rem" }}>
+              <div className="spinner" />
+              Claude is reading your quotes...
+            </div>
+          )}
+
+          {parseError && (
+            <div style={{ color: "#dc2626", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "12px 16px", marginTop: "1rem", fontSize: 14 }}>
+              {parseError}
+            </div>
+          )}
+
+          {parsedData && !parsing && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: "#6b7280", padding: "12px 16px", background: "#f5f0e8", borderRadius: 8, marginTop: "1rem" }}>
+              Found {parsedData.hotels.length} hotel option{parsedData.hotels.length !== 1 ? "s" : ""}
+            </div>
+          )}
+        </Card>
+
+        {/* Hotel Selection */}
+        {parsedData && (
+          <div ref={hotelSectionRef}>
+            <Card title="Choose the Selected Property">
+              <p style={{ fontSize: 13, color: "#6b7280", marginBottom: "1rem" }}>
+                Click the hotel your client is booking. It'll be highlighted on the one-pager.
+              </p>
+              <div style={{ display: "grid", gap: "1rem" }}>
+                {parsedData.hotels.map((hotel, i) => (
+                  <HotelCard
+                    key={i}
+                    hotel={hotel}
+                    selected={selectedIndex === i}
+                    onClick={() => setSelectedIndex(i)}
+                  />
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 10, marginTop: "1.5rem", flexWrap: "wrap" }}>
+                <button
+                  onClick={generatePreview}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 8,
+                    padding: "12px 24px", borderRadius: 8,
+                    fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 500,
+                    cursor: "pointer", border: "none",
+                    transition: "all 0.2s", letterSpacing: "0.03em",
+                    background: "#c9973a", color: "#fff",
+                  }}
+                >
+                  Generate One-Pager
+                </button>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* Preview Section */}
+        {previewHtml && (
+          <div ref={previewSectionRef}>
+            <div style={{ display: "flex", gap: 10, marginBottom: "1rem", flexWrap: "wrap" }}>
+              <button
+                onClick={printPreview}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 8,
+                  padding: "12px 24px", borderRadius: 8,
+                  fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 500,
+                  cursor: "pointer", border: "none",
+                  transition: "all 0.2s", letterSpacing: "0.03em",
+                  background: "#0a1f2e", color: "#fff",
+                }}
+              >
+                Print / Save as PDF
+              </button>
+              <button
+                onClick={() => setPreviewHtml(null)}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 8,
+                  padding: "12px 24px", borderRadius: 8,
+                  fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 500,
+                  cursor: "pointer",
+                  background: "transparent", color: "#0a1f2e",
+                  border: `1px solid ${goldBorder}`,
+                  transition: "all 0.2s", letterSpacing: "0.03em",
+                }}
+              >
+                ← Edit
+              </button>
+            </div>
+            <iframe
+              ref={iframeRef}
+              style={{
+                width: "100%", border: "none", borderRadius: 12,
+                overflow: "hidden",
+                boxShadow: "0 8px 40px rgba(10,31,46,0.15)",
+                minHeight: 700,
+              }}
+              title="One-Pager Preview"
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Card({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div style={{
+      background: "#ffffff",
+      border: "1px solid rgba(201,151,58,0.2)",
+      borderRadius: 12,
+      padding: "1.75rem",
+      marginBottom: "1.25rem",
+      boxShadow: "0 2px 12px rgba(10,31,46,0.06)",
+    }}>
+      <div style={{
+        fontFamily: "'Cormorant Garamond', serif",
+        fontSize: "1.1rem",
+        color: "#0a1f2e",
+        marginBottom: "1.25rem",
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+      }}>
+        <div style={{ width: 3, height: 18, background: "#c9973a", borderRadius: 2, flexShrink: 0 }} />
+        {title}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+      <label style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "#6b7280", fontWeight: 500 }}>
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+function Input({
+  value,
+  onChange,
+  placeholder,
+  type = "text",
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  type?: string;
+}) {
+  return (
+    <input
+      type={type}
+      value={value}
+      placeholder={placeholder}
+      onChange={(e) => onChange(e.target.value)}
+      style={{
+        fontFamily: "'DM Sans', sans-serif",
+        fontSize: 14,
+        color: "#1a1a1a",
+        backgroundColor: "#f5f0e8",
+        border: "1px solid rgba(201,151,58,0.2)",
+        borderRadius: 7,
+        padding: "10px 12px",
+        outline: "none",
+        transition: "border-color 0.2s",
+        width: "100%",
+      }}
+      onFocus={(e) => { e.target.style.borderColor = "#c9973a"; e.target.style.backgroundColor = "#fff"; }}
+      onBlur={(e) => { e.target.style.borderColor = "rgba(201,151,58,0.2)"; e.target.style.backgroundColor = "#f5f0e8"; }}
+    />
+  );
+}
+
+function HotelCard({ hotel, selected, onClick }: { hotel: Hotel; selected: boolean; onClick: () => void }) {
+  const stars = "★".repeat(hotel.stars || 4) + "☆".repeat(5 - (hotel.stars || 4));
+  const pros = (hotel.pros || hotel.highlights || []).slice(0, 3);
+
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        border: selected ? "1.5px solid #c9973a" : "1.5px solid rgba(201,151,58,0.2)",
+        borderRadius: 10,
+        padding: "1.25rem",
+        cursor: "pointer",
+        transition: "all 0.2s",
+        position: "relative",
+        background: selected ? "#fffbf4" : "#ffffff",
+        boxShadow: selected ? "0 4px 20px rgba(201,151,58,0.15)" : "none",
+      }}
+    >
+      {selected && (
+        <div style={{
+          position: "absolute", top: 12, right: 12,
+          background: "#c9973a", color: "#fff",
+          fontSize: 11, fontWeight: 500,
+          padding: "3px 10px", borderRadius: 20,
+          letterSpacing: "0.05em",
+        }}>
+          ✓ Selected
+        </div>
+      )}
+
+      {hotel.advisorPick && (
+        <div style={{
+          display: "inline-flex", alignItems: "center", gap: 4,
+          background: "#0a1f2e", color: "#d4b896",
+          fontSize: 11, padding: "3px 10px", borderRadius: 4,
+          marginBottom: 8,
+        }}>
+          ⭐ Advisor's Pick
+        </div>
+      )}
+
+      <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.15rem", fontWeight: 600, color: "#0a1f2e" }}>
+        {hotel.name}
+      </div>
+
+      <div style={{ display: "flex", gap: 12, alignItems: "center", margin: "6px 0 10px", flexWrap: "wrap" }}>
+        <span style={{ fontSize: "1.1rem", fontWeight: 600, color: "#c9973a" }}>{hotel.totalPrice}</span>
+        <span style={{ color: "#c9973a", fontSize: 13 }}>{stars}</span>
+        {hotel.category && (
+          <span style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "#6b7280", background: "#f5f0e8", padding: "2px 8px", borderRadius: 4 }}>
+            {hotel.category}
+          </span>
+        )}
+        {hotel.refundableBy && (
+          <span style={{ fontSize: 12, color: "#6b7280" }}>Refundable by {hotel.refundableBy}</span>
+        )}
+      </div>
+
+      {hotel.vibe && (
+        <div style={{ fontStyle: "italic", color: "#6b7280", fontSize: 13, marginBottom: 10 }}>
+          {hotel.vibe}
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        {pros.map((p, i) => (
+          <span key={i} style={{ fontSize: 12, background: "#f0f7f4", color: "#2d6a4f", padding: "3px 10px", borderRadius: 4 }}>
+            {p}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
