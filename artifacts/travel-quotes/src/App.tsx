@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import type { AdvisorProfile, Hotel, ParsedQuotes, TripDetails } from "./types";
-import { buildOnePager } from "./lib/onePager";
+import { buildOnePager, type OnePagerStyle } from "./lib/onePager";
 
-const PROFILE_KEYS = ["adv-name", "adv-agency", "adv-phone", "adv-email"] as const;
+const MAX_HOTELS = 4;
 
 function loadProfile(): AdvisorProfile {
   return {
@@ -16,6 +16,27 @@ function loadProfile(): AdvisorProfile {
 function saveProfileField(key: string, value: string) {
   localStorage.setItem(key, value);
 }
+
+const STYLES: { id: OnePagerStyle; label: string; description: string; preview: string }[] = [
+  {
+    id: "luxury",
+    label: "Luxury",
+    description: "Dark navy & gold, premium feel",
+    preview: "bg-[#0a1f2e]",
+  },
+  {
+    id: "editorial",
+    label: "Editorial",
+    description: "Cream tones, light & airy",
+    preview: "bg-[#faf8f5]",
+  },
+  {
+    id: "bold",
+    label: "Bold",
+    description: "Clean white, strong accents",
+    preview: "bg-white",
+  },
+];
 
 export default function App() {
   const [profile, setProfile] = useState<AdvisorProfile>(loadProfile);
@@ -32,14 +53,16 @@ export default function App() {
   const [parsedData, setParsedData] = useState<ParsedQuotes | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+  const [selectedStyle, setSelectedStyle] = useState<OnePagerStyle>("luxury");
+  const [shareStatus, setShareStatus] = useState<"idle" | "copying" | "copied">("idle");
+  const [printing, setPrinting] = useState(false);
 
   const hotelSectionRef = useRef<HTMLDivElement>(null);
   const previewSectionRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
-    const saved = loadProfile();
-    setProfile(saved);
+    setProfile(loadProfile());
   }, []);
 
   function updateProfile(field: keyof AdvisorProfile, value: string) {
@@ -56,6 +79,7 @@ export default function App() {
     setParseError("");
     setParsedData(null);
     setSelectedIndex(null);
+    setPreviewHtml(null);
 
     try {
       const res = await fetch("/api/parse-quotes", {
@@ -68,9 +92,8 @@ export default function App() {
 
       setParsedData(data);
 
-      // Auto-select advisor's pick
       const pickIndex = data.hotels.findIndex((h: Hotel) => h.advisorPick);
-      if (pickIndex !== -1) setSelectedIndex(pickIndex);
+      if (pickIndex !== -1) setSelectedIndex(Math.min(pickIndex, MAX_HOTELS - 1));
 
       setTimeout(() => {
         hotelSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -82,11 +105,8 @@ export default function App() {
     }
   }
 
-  function generatePreview() {
-    if (selectedIndex === null || !parsedData) {
-      alert("Please select a hotel first.");
-      return;
-    }
+  function buildCurrentHtml(): string | null {
+    if (selectedIndex === null || !parsedData) return null;
 
     const adv: AdvisorProfile = {
       name: profile.name || "Your Advisor",
@@ -102,10 +122,22 @@ export default function App() {
       clients: trip.clients || "Valued Client",
     };
 
-    const selected = parsedData.hotels[selectedIndex];
-    const others = parsedData.hotels.filter((_, i) => i !== selectedIndex);
-    const html = buildOnePager(adv, tripData, selected, others, parsedData.advisorNote);
+    const visibleHotels = parsedData.hotels.slice(0, MAX_HOTELS);
+    const selected = visibleHotels[selectedIndex] ?? visibleHotels[0];
+
+    return buildOnePager(adv, tripData, selected, visibleHotels, parsedData.advisorNote, selectedStyle);
+  }
+
+  function generatePreview() {
+    if (selectedIndex === null || !parsedData) {
+      alert("Please select a hotel first.");
+      return;
+    }
+
+    const html = buildCurrentHtml();
+    if (!html) return;
     setPreviewHtml(html);
+    setShareStatus("idle");
 
     setTimeout(() => {
       previewSectionRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -121,16 +153,60 @@ export default function App() {
     }, 100);
   }
 
-  function printPreview() {
-    if (!previewHtml) return;
-    const win = window.open("", "_blank");
-    if (!win) return;
-    win.document.write(previewHtml);
-    win.document.close();
-    win.onload = () => win.print();
+  async function saveQuoteToServer(html: string): Promise<string> {
+    const res = await fetch("/api/save-quote", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ html }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.id) throw new Error("Failed to save quote");
+    return data.id;
   }
 
-  const goldBorder = "rgba(201, 151, 58, 0.2)";
+  async function printPreview() {
+    if (!previewHtml) return;
+    setPrinting(true);
+    try {
+      const id = await saveQuoteToServer(previewHtml);
+      const url = `${window.location.origin}/api/quote/${id}`;
+      const win = window.open(url, "_blank");
+      if (win) {
+        win.onload = () => {
+          setTimeout(() => win.print(), 500);
+        };
+      }
+    } catch {
+      // fallback: use srcdoc approach
+      const win = window.open("", "_blank");
+      if (win) {
+        win.document.write(previewHtml);
+        win.document.close();
+        win.onload = () => win.print();
+      }
+    } finally {
+      setPrinting(false);
+    }
+  }
+
+  async function copyShareLink() {
+    if (!previewHtml) return;
+    setShareStatus("copying");
+    try {
+      const id = await saveQuoteToServer(previewHtml);
+      const url = `${window.location.origin}/api/quote/${id}`;
+      await navigator.clipboard.writeText(url);
+      setShareStatus("copied");
+      setTimeout(() => setShareStatus("idle"), 3000);
+    } catch {
+      setShareStatus("idle");
+      alert("Could not copy link. Please try again.");
+    }
+  }
+
+  const gb = "rgba(201,151,58,0.2)";
+  const visibleHotels = parsedData?.hotels.slice(0, MAX_HOTELS) ?? [];
+  const hiddenCount = (parsedData?.hotels.length ?? 0) - MAX_HOTELS;
 
   return (
     <div style={{ backgroundColor: "#f5f0e8", minHeight: "100vh", fontFamily: "'DM Sans', sans-serif", color: "#1a1a1a" }}>
@@ -196,64 +272,31 @@ export default function App() {
               onChange={(e) => setRawText(e.target.value)}
               placeholder="Paste the full quote text from your system, email, or notes here. Claude will automatically extract each hotel option, pricing, highlights, and your recommendation..."
               style={{
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: 14,
-                color: "#1a1a1a",
-                backgroundColor: "#f5f0e8",
-                border: `1px solid ${goldBorder}`,
-                borderRadius: 7,
-                padding: "10px 12px",
-                outline: "none",
-                resize: "vertical",
-                minHeight: 160,
-                lineHeight: 1.6,
-                width: "100%",
-                transition: "border-color 0.2s",
+                fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "#1a1a1a",
+                backgroundColor: "#f5f0e8", border: `1px solid ${gb}`, borderRadius: 7,
+                padding: "10px 12px", outline: "none", resize: "vertical", minHeight: 160,
+                lineHeight: 1.6, width: "100%", transition: "border-color 0.2s",
               }}
               onFocus={(e) => { e.target.style.borderColor = "#c9973a"; e.target.style.backgroundColor = "#fff"; }}
-              onBlur={(e) => { e.target.style.borderColor = goldBorder; e.target.style.backgroundColor = "#f5f0e8"; }}
+              onBlur={(e) => { e.target.style.borderColor = gb; e.target.style.backgroundColor = "#f5f0e8"; }}
             />
           </Field>
-          <div style={{ display: "flex", gap: 10, marginTop: "1rem", flexWrap: "wrap" }}>
-            <button
-              onClick={parseQuotes}
-              disabled={parsing}
-              style={{
-                display: "inline-flex", alignItems: "center", gap: 8,
-                padding: "12px 24px", borderRadius: 8,
-                fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 500,
-                cursor: parsing ? "not-allowed" : "pointer", border: "none",
-                transition: "all 0.2s", letterSpacing: "0.03em",
-                background: "#0a1f2e", color: "#fff",
-                opacity: parsing ? 0.5 : 1,
-              }}
-            >
-              {parsing ? (
-                <>
-                  <div className="spinner" />
-                  Parsing...
-                </>
-              ) : "✨ Parse & Extract Hotels"}
-            </button>
+          <div style={{ display: "flex", gap: 10, marginTop: "1rem" }}>
+            <Btn navy disabled={parsing} onClick={parseQuotes}>
+              {parsing ? <><div className="spinner" /> Parsing...</> : "✨ Parse & Extract Hotels"}
+            </Btn>
           </div>
 
           {parsing && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: "#6b7280", padding: "12px 16px", background: "#f5f0e8", borderRadius: 8, marginTop: "1rem" }}>
-              <div className="spinner" />
-              Claude is reading your quotes...
-            </div>
+            <StatusRow><div className="spinner" /> Claude is reading your quotes...</StatusRow>
           )}
-
           {parseError && (
             <div style={{ color: "#dc2626", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "12px 16px", marginTop: "1rem", fontSize: 14 }}>
               {parseError}
             </div>
           )}
-
           {parsedData && !parsing && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: "#6b7280", padding: "12px 16px", background: "#f5f0e8", borderRadius: 8, marginTop: "1rem" }}>
-              Found {parsedData.hotels.length} hotel option{parsedData.hotels.length !== 1 ? "s" : ""}
-            </div>
+            <StatusRow>Found {parsedData.hotels.length} hotel option{parsedData.hotels.length !== 1 ? "s" : ""}</StatusRow>
           )}
         </Card>
 
@@ -265,7 +308,7 @@ export default function App() {
                 Click the hotel your client is booking. It'll be highlighted on the one-pager.
               </p>
               <div style={{ display: "grid", gap: "1rem" }}>
-                {parsedData.hotels.map((hotel, i) => (
+                {visibleHotels.map((hotel, i) => (
                   <HotelCard
                     key={i}
                     hotel={hotel}
@@ -274,20 +317,62 @@ export default function App() {
                   />
                 ))}
               </div>
+
+              {hiddenCount > 0 && (
+                <div style={{
+                  fontSize: 12, color: "#9ca3af", marginTop: "0.75rem",
+                  padding: "8px 14px", background: "#fafafa", border: "1px solid #f0ebe0",
+                  borderRadius: 8, textAlign: "center",
+                }}>
+                  Showing top 4 options. Upgrade for unlimited.
+                </div>
+              )}
+
+              {/* Style Selector */}
+              <div style={{ marginTop: "1.5rem" }}>
+                <div style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "#6b7280", fontWeight: 500, marginBottom: 10 }}>
+                  One-Pager Style
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                  {STYLES.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => setSelectedStyle(s.id)}
+                      style={{
+                        border: selectedStyle === s.id ? "2px solid #c9973a" : "2px solid rgba(201,151,58,0.2)",
+                        borderRadius: 10, padding: "12px 14px", cursor: "pointer",
+                        background: selectedStyle === s.id ? "#fffbf4" : "#ffffff",
+                        textAlign: "left", transition: "all 0.2s",
+                        boxShadow: selectedStyle === s.id ? "0 2px 12px rgba(201,151,58,0.12)" : "none",
+                      }}
+                    >
+                      <div style={{
+                        width: "100%", height: 28, borderRadius: 5, marginBottom: 8,
+                        background: s.id === "luxury" ? "#0a1f2e" : s.id === "editorial" ? "#faf8f5" : "#ffffff",
+                        border: s.id === "editorial" ? "1px solid #e8e4dd" : s.id === "bold" ? "1px solid #e5e7eb" : "none",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}>
+                        <div style={{
+                          width: 40, height: 4, borderRadius: 2,
+                          background: s.id === "luxury" ? "#c9973a" : s.id === "editorial" ? "#c9973a" : "#0a1f2e",
+                        }} />
+                      </div>
+                      <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 15, fontWeight: 600, color: "#0a1f2e", marginBottom: 2 }}>
+                        {s.label}
+                      </div>
+                      <div style={{ fontSize: 11, color: "#9ca3af" }}>{s.description}</div>
+                      {selectedStyle === s.id && (
+                        <div style={{ fontSize: 10, color: "#c9973a", marginTop: 4, fontWeight: 500 }}>Selected</div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div style={{ display: "flex", gap: 10, marginTop: "1.5rem", flexWrap: "wrap" }}>
-                <button
-                  onClick={generatePreview}
-                  style={{
-                    display: "inline-flex", alignItems: "center", gap: 8,
-                    padding: "12px 24px", borderRadius: 8,
-                    fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 500,
-                    cursor: "pointer", border: "none",
-                    transition: "all 0.2s", letterSpacing: "0.03em",
-                    background: "#c9973a", color: "#fff",
-                  }}
-                >
+                <Btn gold onClick={generatePreview}>
                   Generate One-Pager
-                </button>
+                </Btn>
               </div>
             </Card>
           </div>
@@ -297,41 +382,34 @@ export default function App() {
         {previewHtml && (
           <div ref={previewSectionRef}>
             <div style={{ display: "flex", gap: 10, marginBottom: "1rem", flexWrap: "wrap" }}>
-              <button
-                onClick={printPreview}
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: 8,
-                  padding: "12px 24px", borderRadius: 8,
-                  fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 500,
-                  cursor: "pointer", border: "none",
-                  transition: "all 0.2s", letterSpacing: "0.03em",
-                  background: "#0a1f2e", color: "#fff",
-                }}
+              <Btn navy disabled={printing} onClick={printPreview}>
+                {printing ? "Opening..." : "🖨 Print / Save as PDF"}
+              </Btn>
+              <Btn
+                gold
+                onClick={copyShareLink}
+                disabled={shareStatus === "copying"}
               >
-                Print / Save as PDF
-              </button>
-              <button
-                onClick={() => setPreviewHtml(null)}
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: 8,
-                  padding: "12px 24px", borderRadius: 8,
-                  fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 500,
-                  cursor: "pointer",
-                  background: "transparent", color: "#0a1f2e",
-                  border: `1px solid ${goldBorder}`,
-                  transition: "all 0.2s", letterSpacing: "0.03em",
-                }}
-              >
+                {shareStatus === "copied"
+                  ? "✓ Link Copied!"
+                  : shareStatus === "copying"
+                    ? "Saving..."
+                    : "🔗 Copy Shareable Link"}
+              </Btn>
+              <BtnOutline onClick={() => setPreviewHtml(null)}>
                 ← Edit
-              </button>
+              </BtnOutline>
             </div>
+            {shareStatus === "copied" && (
+              <div style={{ fontSize: 13, color: "#059669", background: "#d1fae5", border: "1px solid #6ee7b7", borderRadius: 8, padding: "10px 16px", marginBottom: "1rem" }}>
+                Shareable link copied to clipboard — send it directly to your client.
+              </div>
+            )}
             <iframe
               ref={iframeRef}
               style={{
-                width: "100%", border: "none", borderRadius: 12,
-                overflow: "hidden",
-                boxShadow: "0 8px 40px rgba(10,31,46,0.15)",
-                minHeight: 700,
+                width: "100%", border: "none", borderRadius: 12, overflow: "hidden",
+                boxShadow: "0 8px 40px rgba(10,31,46,0.15)", minHeight: 700,
               }}
               title="One-Pager Preview"
             />
@@ -342,25 +420,12 @@ export default function App() {
   );
 }
 
+// ─── SHARED COMPONENTS ────────────────────────────────────────────────────────
+
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={{
-      background: "#ffffff",
-      border: "1px solid rgba(201,151,58,0.2)",
-      borderRadius: 12,
-      padding: "1.75rem",
-      marginBottom: "1.25rem",
-      boxShadow: "0 2px 12px rgba(10,31,46,0.06)",
-    }}>
-      <div style={{
-        fontFamily: "'Cormorant Garamond', serif",
-        fontSize: "1.1rem",
-        color: "#0a1f2e",
-        marginBottom: "1.25rem",
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-      }}>
+    <div style={{ background: "#fff", border: "1px solid rgba(201,151,58,0.2)", borderRadius: 12, padding: "1.75rem", marginBottom: "1.25rem", boxShadow: "0 2px 12px rgba(10,31,46,0.06)" }}>
+      <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.1rem", color: "#0a1f2e", marginBottom: "1.25rem", display: "flex", alignItems: "center", gap: 8 }}>
         <div style={{ width: 3, height: 18, background: "#c9973a", borderRadius: 2, flexShrink: 0 }} />
         {title}
       </div>
@@ -380,111 +445,76 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function Input({
-  value,
-  onChange,
-  placeholder,
-  type = "text",
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-  type?: string;
-}) {
+function Input({ value, onChange, placeholder, type = "text" }: { value: string; onChange: (v: string) => void; placeholder?: string; type?: string }) {
   return (
     <input
-      type={type}
-      value={value}
-      placeholder={placeholder}
-      onChange={(e) => onChange(e.target.value)}
-      style={{
-        fontFamily: "'DM Sans', sans-serif",
-        fontSize: 14,
-        color: "#1a1a1a",
-        backgroundColor: "#f5f0e8",
-        border: "1px solid rgba(201,151,58,0.2)",
-        borderRadius: 7,
-        padding: "10px 12px",
-        outline: "none",
-        transition: "border-color 0.2s",
-        width: "100%",
-      }}
+      type={type} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)}
+      style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "#1a1a1a", backgroundColor: "#f5f0e8", border: "1px solid rgba(201,151,58,0.2)", borderRadius: 7, padding: "10px 12px", outline: "none", transition: "border-color 0.2s", width: "100%" }}
       onFocus={(e) => { e.target.style.borderColor = "#c9973a"; e.target.style.backgroundColor = "#fff"; }}
       onBlur={(e) => { e.target.style.borderColor = "rgba(201,151,58,0.2)"; e.target.style.backgroundColor = "#f5f0e8"; }}
     />
   );
 }
 
+function Btn({ children, onClick, disabled, navy, gold }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; navy?: boolean; gold?: boolean }) {
+  return (
+    <button
+      onClick={onClick} disabled={disabled}
+      style={{
+        display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 24px", borderRadius: 8,
+        fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 500,
+        cursor: disabled ? "not-allowed" : "pointer", border: "none",
+        transition: "all 0.2s", letterSpacing: "0.03em", opacity: disabled ? 0.5 : 1,
+        background: navy ? "#0a1f2e" : gold ? "#c9973a" : "#e5e7eb",
+        color: (navy || gold) ? "#fff" : "#1a1a1a",
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function BtnOutline({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 24px", borderRadius: 8,
+        fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 500,
+        cursor: "pointer", background: "transparent", color: "#0a1f2e",
+        border: "1px solid rgba(201,151,58,0.2)", transition: "all 0.2s", letterSpacing: "0.03em",
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function StatusRow({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: "#6b7280", padding: "12px 16px", background: "#f5f0e8", borderRadius: 8, marginTop: "1rem" }}>
+      {children}
+    </div>
+  );
+}
+
 function HotelCard({ hotel, selected, onClick }: { hotel: Hotel; selected: boolean; onClick: () => void }) {
   const stars = "★".repeat(hotel.stars || 4) + "☆".repeat(5 - (hotel.stars || 4));
   const pros = (hotel.pros || hotel.highlights || []).slice(0, 3);
-
   return (
-    <div
-      onClick={onClick}
-      style={{
-        border: selected ? "1.5px solid #c9973a" : "1.5px solid rgba(201,151,58,0.2)",
-        borderRadius: 10,
-        padding: "1.25rem",
-        cursor: "pointer",
-        transition: "all 0.2s",
-        position: "relative",
-        background: selected ? "#fffbf4" : "#ffffff",
-        boxShadow: selected ? "0 4px 20px rgba(201,151,58,0.15)" : "none",
-      }}
-    >
-      {selected && (
-        <div style={{
-          position: "absolute", top: 12, right: 12,
-          background: "#c9973a", color: "#fff",
-          fontSize: 11, fontWeight: 500,
-          padding: "3px 10px", borderRadius: 20,
-          letterSpacing: "0.05em",
-        }}>
-          ✓ Selected
-        </div>
-      )}
-
-      {hotel.advisorPick && (
-        <div style={{
-          display: "inline-flex", alignItems: "center", gap: 4,
-          background: "#0a1f2e", color: "#d4b896",
-          fontSize: 11, padding: "3px 10px", borderRadius: 4,
-          marginBottom: 8,
-        }}>
-          ⭐ Advisor's Pick
-        </div>
-      )}
-
-      <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.15rem", fontWeight: 600, color: "#0a1f2e" }}>
-        {hotel.name}
-      </div>
-
+    <div onClick={onClick} style={{ border: selected ? "1.5px solid #c9973a" : "1.5px solid rgba(201,151,58,0.2)", borderRadius: 10, padding: "1.25rem", cursor: "pointer", transition: "all 0.2s", position: "relative", background: selected ? "#fffbf4" : "#ffffff", boxShadow: selected ? "0 4px 20px rgba(201,151,58,0.15)" : "none" }}>
+      {selected && <div style={{ position: "absolute", top: 12, right: 12, background: "#c9973a", color: "#fff", fontSize: 11, fontWeight: 500, padding: "3px 10px", borderRadius: 20, letterSpacing: "0.05em" }}>✓ Selected</div>}
+      {hotel.advisorPick && <div style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#0a1f2e", color: "#d4b896", fontSize: 11, padding: "3px 10px", borderRadius: 4, marginBottom: 8 }}>⭐ Advisor's Pick</div>}
+      <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.15rem", fontWeight: 600, color: "#0a1f2e" }}>{hotel.name}</div>
       <div style={{ display: "flex", gap: 12, alignItems: "center", margin: "6px 0 10px", flexWrap: "wrap" }}>
         <span style={{ fontSize: "1.1rem", fontWeight: 600, color: "#c9973a" }}>{hotel.totalPrice}</span>
         <span style={{ color: "#c9973a", fontSize: 13 }}>{stars}</span>
-        {hotel.category && (
-          <span style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "#6b7280", background: "#f5f0e8", padding: "2px 8px", borderRadius: 4 }}>
-            {hotel.category}
-          </span>
-        )}
-        {hotel.refundableBy && (
-          <span style={{ fontSize: 12, color: "#6b7280" }}>Refundable by {hotel.refundableBy}</span>
-        )}
+        {hotel.category && <span style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "#6b7280", background: "#f5f0e8", padding: "2px 8px", borderRadius: 4 }}>{hotel.category}</span>}
+        {hotel.refundableBy && <span style={{ fontSize: 12, color: "#6b7280" }}>Refundable by {hotel.refundableBy}</span>}
       </div>
-
-      {hotel.vibe && (
-        <div style={{ fontStyle: "italic", color: "#6b7280", fontSize: 13, marginBottom: 10 }}>
-          {hotel.vibe}
-        </div>
-      )}
-
+      {hotel.vibe && <div style={{ fontStyle: "italic", color: "#6b7280", fontSize: 13, marginBottom: 10 }}>{hotel.vibe}</div>}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        {pros.map((p, i) => (
-          <span key={i} style={{ fontSize: 12, background: "#f0f7f4", color: "#2d6a4f", padding: "3px 10px", borderRadius: 4 }}>
-            {p}
-          </span>
-        ))}
+        {pros.map((p, i) => <span key={i} style={{ fontSize: 12, background: "#f0f7f4", color: "#2d6a4f", padding: "3px 10px", borderRadius: 4 }}>{p}</span>)}
       </div>
     </div>
   );

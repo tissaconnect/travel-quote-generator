@@ -1,0 +1,20 @@
+Update the app with these changes:
+1. Fix the print header/footer (about:blank and date)
+In the buildOnePager function, add this to the style tag inside the generated HTML:
+css@page { margin: 0; size: auto; }
+@media print { body { margin: 1cm; } }
+Also change the print function to stop using window.open and document.write — instead save the HTML to the server and open it as a real URL so the title bar shows "Se7en Seas Quote" not about:blank.
+2. Add shareable link feature
+In server.js, add two new endpoints: POST /api/save-quote that accepts an html string, stores it in memory with a UUID key, and returns the UUID. GET /quote/:id that serves the stored HTML as a full page with content-type text/html. In index.html, after generating the preview add a "Copy Shareable Link" button that calls /api/save-quote with the generated HTML, then copies the full URL (window.location.origin + /quote/ + uuid) to clipboard and shows a "Link copied!" confirmation. The shareable page should be the full one-pager and include the print fix CSS above.
+3. Add tone/style selector
+Above the Generate button add three clickable style cards labeled: "Luxury" (dark navy and gold, current style), "Editorial" (cream background, dark text, minimal borders, light and airy), "Bold" (white background, large typography, strong color accents). Store the selected style and pass it into buildOnePager. Each style should change background colors, font weights, and card styling throughout the entire generated HTML.
+4. Limit hotel selection to 4 max
+After hotels are parsed and rendered, if more than 4 are returned automatically hide the extras. Add a small note that says "Showing top 4 options. Upgrade for unlimited." Do not remove the data, just hide the cards beyond index 3.
+5. Completely redesign the one-pager template to match this layout:
+
+Hero section: large destination name in serif font, italic dates subtitle, trip stats bar showing Dates / Duration / Travelers / Options count / Price Range in gold on dark navy
+Each hotel gets its own full-width card with three columns: LEFT column has a category label in small caps (like BEST VALUE UPGRADE or LUXURY ROMANCE), hotel name in large serif, star rating, and type tags. MIDDLE column has the vibe description in italic, then 4 emoji highlight tags as pill badges. RIGHT column has the price large and prominent, per-person price small below, and refund deadline as a badge (green if plenty of time, amber if within 2 weeks)
+The selected hotel card gets a gold corner banner saying "CLIENT SELECTION" and a gold border
+Below all hotel cards add an at-a-glance comparison table with columns: Property, Stars, Total Price, Vibe, All-Inclusive checkmark, Cancel By, Best For
+Footer: left side has advisor name large in serif, title, phone with phone icon, email. Right side has Important Notes section listing price disclaimers and any early cancellation warnings auto-detected from the data
+Apply the print-color-adjust fix so all colors show when saving to PDF
