@@ -37,7 +37,7 @@ export function buildOnePager(
   return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'DM Sans',sans-serif;background:#f5f0e8;}</style>
+<style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}body{font-family:'DM Sans',sans-serif;background:#f5f0e8;}</style>
 </head><body>
 <div style="max-width:760px;margin:0 auto;background:#fff;box-shadow:0 4px 40px rgba(0,0,0,0.08);">
 
