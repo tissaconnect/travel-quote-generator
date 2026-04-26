@@ -1,0 +1,93 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap');
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-destructive: hsl(var(--destructive));
+
+  --font-sans: 'DM Sans', sans-serif;
+  --font-serif: 'Cormorant Garamond', serif;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+}
+
+:root {
+  --navy: #0a1f2e;
+  --navy2: #0d2d3e;
+  --gold: #c9973a;
+  --gold-light: #d4b896;
+  --cream: #f5f0e8;
+  --cream-dark: #ede8df;
+  --text: #1a1a1a;
+  --muted-color: #6b7280;
+  --border-gold: rgba(201, 151, 58, 0.2);
+  --white: #ffffff;
+
+  --background: 40 30% 95%;
+  --foreground: 210 40% 10%;
+  --border: 38 40% 75%;
+  --input: 38 40% 75%;
+  --ring: 38 60% 51%;
+  --card: 0 0% 100%;
+  --card-foreground: 210 40% 10%;
+  --primary: 210 57% 11%;
+  --primary-foreground: 0 0% 100%;
+  --muted: 40 25% 92%;
+  --muted-foreground: 215 16% 47%;
+  --destructive: 0 84% 60%;
+
+  --radius: 0.5rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+  body {
+    @apply font-sans antialiased;
+    background-color: var(--cream);
+    color: var(--text);
+  }
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* Spinner animation */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border-gold);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+/* Hotel card selected state */
+.hotel-card-selected {
+  border-color: var(--gold) !important;
+  background-color: #fffbf4 !important;
+  box-shadow: 0 4px 20px rgba(201, 151, 58, 0.15) !important;
+}
