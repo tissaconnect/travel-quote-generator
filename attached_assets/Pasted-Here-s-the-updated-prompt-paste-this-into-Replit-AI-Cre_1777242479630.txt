@@ -1,0 +1,29 @@
+Here's the updated prompt — paste this into Replit AI:
+
+---
+
+Create a new file called public/landing.html. This is the marketing homepage for a SaaS product called Travolo — a quote generation tool for independent travel advisors. Do not touch any existing files.
+
+The page should use Cormorant Garamond and DM Sans from Google Fonts, navy #0a1f2e and gold #c9973a color scheme, cream #f5f0e8 background. Make it look luxury and editorial, not corporate.
+
+Include these sections in order:
+
+**Nav** — Logo "Travolo" on left, "Sign In" and "Start Free Trial" buttons on right. Start Free Trial links to #pricing.
+
+**Hero** — Large headline: "Your quotes should look as good as the trips you sell." Subheadline: "Travolo turns your raw supplier quotes into stunning, branded client one-pagers in under 2 minutes." Two buttons: "See a Sample Quote" and "Start Free — No card required". Add a subtle animated background using CSS only.
+
+**Problem section** — Three side by side pain points with icons: "Hours spent formatting quotes manually" / "Generic Word docs that don't reflect your brand" / "Clients shopping around because your quote looks like everyone else's"
+
+**How it works** — Three numbered steps: 1. Paste your raw quote from any system 2. Travolo AI extracts and organizes every option 3. Download a branded PDF in one click. Keep it clean and simple.
+
+**Sample preview section** — Dark navy background, centered text saying "See the difference" with a before/after concept: left side labeled "Before: your raw email" showing a simple monospace text block with fake hotel pricing, right side labeled "After: your client quote" showing a styled mini card with gold accents, hotel name, price, and emoji highlights.
+
+**Pricing section** — id="pricing". Two cards side by side. LEFT card: "Starter" $29/month, features list: Up to 50 quotes/month, 3 quote styles, Shareable client links, PDF download, Email support. Button says "Start Free Trial" links to STRIPE_PAYMENT_LINK_HERE as a placeholder. RIGHT card: "Pro" $59/month with a "Most Popular" gold badge, features: Unlimited quotes, All styles and premium themes, Custom agency branding, Priority support, Early access to new features. Button says "Get Pro Access" links to STRIPE_PAYMENT_LINK_HERE placeholder. Add a line below: "14-day free trial. No credit card required. Cancel anytime."
+
+**Footer** — Simple. Travolo logo, "Built for independent travel advisors" tagline, copyright 2025.
+
+Make the page fully responsive. Add smooth scroll behavior. Add subtle fade-in animations on scroll using CSS animation and Intersection Observer in vanilla JS. Apply print-color-adjust fix so all background colors show when printing.
+
+---
+
+Go run that and come back with a screenshot when it's up.
