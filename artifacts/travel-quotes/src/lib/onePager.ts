@@ -312,7 +312,7 @@ export function buildOnePager(
   return `<!DOCTYPE html>
 <html lang="en"><head>
 <meta charset="UTF-8">
-<title>Se7en Seas Quote — ${trip.destination}</title>
+<title>Travolo Quote — ${trip.destination}</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
   *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}
@@ -325,8 +325,8 @@ export function buildOnePager(
   <div class="hero">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;">
       <div>
-        <div class="hero-agency">Se7en <span>Seas</span> Advisory</div>
-        <div class="hero-tagline">Your Luxury Travel Experts</div>
+        <div class="hero-agency">${adv.agency || "Your Agency"}</div>
+        <div class="hero-tagline">Powered by Travolo</div>
       </div>
       <div style="text-align:right;font-size:11px;color:#9ca3af;">
         Prepared for <strong style="color:inherit;">${trip.clients}</strong>

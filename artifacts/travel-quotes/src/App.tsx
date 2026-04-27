@@ -215,7 +215,7 @@ export default function App() {
         {/* Header */}
         <header style={{ textAlign: "center", marginBottom: "2.5rem" }}>
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "2rem", color: "#0a1f2e", letterSpacing: "0.15em", fontWeight: 500 }}>
-            Se7en <span style={{ color: "#c9973a" }}>Seas</span> Advisory
+            Travolo<span style={{ color: "#c9973a" }}>.</span>
           </div>
           <div style={{ fontSize: 12, letterSpacing: "0.2em", textTransform: "uppercase", color: "#6b7280", marginTop: 4 }}>
             Quote Generator
@@ -229,7 +229,7 @@ export default function App() {
               <Input value={profile.name} onChange={(v) => updateProfile("name", v)} placeholder="Monique Robinson" />
             </Field>
             <Field label="Agency Name">
-              <Input value={profile.agency} onChange={(v) => updateProfile("agency", v)} placeholder="Se7en Seas Advisory" />
+              <Input value={profile.agency} onChange={(v) => updateProfile("agency", v)} placeholder="Your Agency Name" />
             </Field>
             <Field label="Phone / Text">
               <Input value={profile.phone} onChange={(v) => updateProfile("phone", v)} placeholder="+1.585.503.1066" />
