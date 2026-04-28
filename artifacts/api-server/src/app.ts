@@ -3,6 +3,7 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import { clerkMiddleware } from "@clerk/express";
 import { CLERK_PROXY_PATH, clerkProxyMiddleware } from "./middlewares/clerkProxyMiddleware";
+import stripeWebhookRouter from "./routes/stripe-webhook";
 import router from "./routes";
 import { logger } from "./lib/logger";
 
@@ -29,6 +30,11 @@ app.use(
 );
 
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
+
+// Stripe webhooks must be registered with raw body parser BEFORE express.json()
+// so the raw bytes are available for signature verification
+app.use("/webhooks/stripe", express.raw({ type: "*/*" }));
+app.use(stripeWebhookRouter);
 
 app.use(cors({ credentials: true, origin: true }));
 app.use(express.json());

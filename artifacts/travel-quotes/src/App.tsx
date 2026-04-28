@@ -511,11 +511,69 @@ function SignUpPage() {
   );
 }
 
+function SubscriptionGate({ children }: { children: React.ReactNode }) {
+  const [status, setStatus] = useState<"loading" | "active" | "inactive">("loading");
+
+  useEffect(() => {
+    fetch(`${import.meta.env.BASE_URL}api/subscription-status`)
+      .then((r) => r.json())
+      .then((d) => setStatus(d.hasSubscription ? "active" : "inactive"))
+      .catch(() => setStatus("active")); // fail open in dev
+  }, []);
+
+  if (status === "loading") {
+    return (
+      <div style={{ minHeight: "100vh", background: "#f5f0e8", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ fontSize: 14, color: "#9ca3af", fontFamily: "'DM Sans', sans-serif" }}>Loading…</div>
+      </div>
+    );
+  }
+
+  if (status === "inactive") {
+    return (
+      <div style={{ minHeight: "100vh", background: "#f5f0e8", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "2rem 1rem", fontFamily: "'DM Sans', sans-serif" }}>
+        <div style={{ textAlign: "center", marginBottom: "2.5rem" }}>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "2rem", color: "#0a1f2e", letterSpacing: "0.15em", fontWeight: 500 }}>
+            Travolo<span style={{ color: "#c9973a" }}>.</span>
+          </div>
+        </div>
+        <div style={{ background: "#fff", border: "1px solid rgba(201,151,58,0.2)", borderRadius: 14, padding: "2.5rem 2rem", width: "100%", maxWidth: 420, boxShadow: "0 4px 24px rgba(10,31,46,0.07)", textAlign: "center" }}>
+          <div style={{ fontSize: "2rem", marginBottom: "1rem" }}>🔒</div>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "#0a1f2e", marginBottom: 8 }}>
+            No active subscription
+          </div>
+          <div style={{ fontSize: 13, color: "#6b7280", marginBottom: "1.75rem", lineHeight: 1.6 }}>
+            Start your free trial to access the Travolo quote generator.
+          </div>
+          <a
+            href="https://buy.stripe.com/test_eVqbJ1b5P4iY32p76Zds400"
+            style={{
+              display: "block", width: "100%", padding: "13px 24px", borderRadius: 8,
+              background: "#c9973a", color: "#fff", fontFamily: "'DM Sans', sans-serif",
+              fontSize: 15, fontWeight: 500, cursor: "pointer", letterSpacing: "0.03em",
+              textDecoration: "none", textAlign: "center", boxSizing: "border-box",
+            }}
+          >
+            Start Your Free Trial
+          </a>
+          <div style={{ marginTop: "1.25rem", fontSize: 12, color: "#9ca3af" }}>
+            $9/month · 14-day free trial · Cancel anytime
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+}
+
 function HomeRoute() {
   return (
     <>
       <Show when="signed-in">
-        <QuoteGeneratorApp />
+        <SubscriptionGate>
+          <QuoteGeneratorApp />
+        </SubscriptionGate>
       </Show>
       <Show when="signed-out">
         <BrandedSignInScreen />

@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { getAuth } from "@clerk/express";
+import { getAuth, clerkClient } from "@clerk/express";
+import { isSubscriber } from "../lib/subscriptions";
 
 const router = Router();
 
@@ -13,7 +14,30 @@ function requireAuth(req: any, res: any, next: any) {
   next();
 }
 
-router.post("/parse-quotes", requireAuth, async (req, res) => {
+async function requireSubscription(req: any, res: any, next: any) {
+  if (!process.env.STRIPE_WEBHOOK_SECRET) {
+    return next();
+  }
+  const auth = getAuth(req);
+  const userId = auth?.sessionClaims?.userId || auth?.userId;
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  try {
+    const user = await clerkClient.users.getUser(userId);
+    const email = user.emailAddresses[0]?.emailAddress ?? "";
+    if (!isSubscriber(email)) {
+      res.status(401).json({ error: "No active subscription found. Please subscribe at travolo.com to continue." });
+      return;
+    }
+    next();
+  } catch {
+    res.status(500).json({ error: "Could not verify subscription" });
+  }
+}
+
+router.post("/parse-quotes", requireAuth, requireSubscription, async (req, res) => {
   const { rawText, tripDetails } = req.body as {
     rawText?: string;
     tripDetails?: { destination: string; dates: string; adults: string; nights: string };
