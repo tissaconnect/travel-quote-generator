@@ -518,7 +518,7 @@ function SubscriptionGate({ children }: { children: React.ReactNode }) {
     fetch(`${import.meta.env.BASE_URL}api/subscription-status`)
       .then((r) => r.json())
       .then((d) => setStatus(d.hasSubscription ? "active" : "inactive"))
-      .catch(() => setStatus("active")); // fail open in dev
+      .catch(() => setStatus("inactive"));
   }, []);
 
   if (status === "loading") {

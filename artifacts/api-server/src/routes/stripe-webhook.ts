@@ -36,18 +36,23 @@ router.post(
       return;
     }
 
+    console.log(`[Stripe webhook] Received event: ${event.type} (id: ${event.id})`);
+
     switch (event.type) {
       case "customer.subscription.created": {
         const sub = event.data.object as Stripe.Subscription;
         const customerId = sub.customer as string;
+        console.log(`[Stripe webhook] subscription.created — customerId: ${customerId}`);
         try {
           const customer = await stripe.customers.retrieve(customerId) as Stripe.Customer;
           if (customer.email) {
             addSubscriber(customer.email);
-            console.log(`Subscription created: ${customer.email}`);
+            console.log(`[Stripe webhook] Added subscriber: ${customer.email}`);
+          } else {
+            console.warn(`[Stripe webhook] Customer ${customerId} has no email`);
           }
         } catch (err) {
-          console.error("Failed to retrieve customer for subscription.created:", err);
+          console.error("[Stripe webhook] Failed to retrieve customer for subscription.created:", err);
         }
         break;
       }
@@ -55,19 +60,23 @@ router.post(
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription;
         const customerId = sub.customer as string;
+        console.log(`[Stripe webhook] subscription.deleted — customerId: ${customerId}`);
         try {
           const customer = await stripe.customers.retrieve(customerId) as Stripe.Customer;
           if (customer.email) {
             removeSubscriber(customer.email);
-            console.log(`Subscription deleted: ${customer.email}`);
+            console.log(`[Stripe webhook] Removed subscriber: ${customer.email}`);
+          } else {
+            console.warn(`[Stripe webhook] Customer ${customerId} has no email`);
           }
         } catch (err) {
-          console.error("Failed to retrieve customer for subscription.deleted:", err);
+          console.error("[Stripe webhook] Failed to retrieve customer for subscription.deleted:", err);
         }
         break;
       }
 
       default:
+        console.log(`[Stripe webhook] Unhandled event type: ${event.type} — ignoring`);
         break;
     }
 
