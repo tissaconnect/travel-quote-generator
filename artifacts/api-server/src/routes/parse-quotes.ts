@@ -1,8 +1,19 @@
 import { Router } from "express";
+import { getAuth } from "@clerk/express";
 
 const router = Router();
 
-router.post("/parse-quotes", async (req, res) => {
+function requireAuth(req: any, res: any, next: any) {
+  const auth = getAuth(req);
+  const userId = auth?.sessionClaims?.userId || auth?.userId;
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  next();
+}
+
+router.post("/parse-quotes", requireAuth, async (req, res) => {
   const { rawText, tripDetails } = req.body as {
     rawText?: string;
     tripDetails?: { destination: string; dates: string; adults: string; nights: string };
