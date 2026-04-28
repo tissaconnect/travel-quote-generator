@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { ClerkProvider, SignIn, SignUp, Show, useClerk } from "@clerk/react";
+import { ClerkProvider, SignIn, SignUp, Show, useClerk, useUser } from "@clerk/react";
 import { shadcn } from "@clerk/themes";
 import { Switch, Route, useLocation, Router as WouterRouter } from "wouter";
 import type { AdvisorProfile, Hotel, ParsedQuotes, TripDetails } from "./types";
@@ -66,17 +66,18 @@ const clerkAppearance = {
   },
 };
 
-function loadProfile(): AdvisorProfile {
+function loadProfile(userId: string): AdvisorProfile {
+  const p = (k: string) => localStorage.getItem(`${userId}-${k}`) ?? "";
   return {
-    name: localStorage.getItem("adv-name") ?? "",
-    agency: localStorage.getItem("adv-agency") ?? "",
-    phone: localStorage.getItem("adv-phone") ?? "",
-    email: localStorage.getItem("adv-email") ?? "",
+    name: p("adv-name"),
+    agency: p("adv-agency"),
+    phone: p("adv-phone"),
+    email: p("adv-email"),
   };
 }
 
-function saveProfileField(key: string, value: string) {
-  localStorage.setItem(key, value);
+function saveProfileField(userId: string, key: string, value: string) {
+  localStorage.setItem(`${userId}-${key}`, value);
 }
 
 const STYLES: { id: OnePagerStyle; label: string; description: string }[] = [
@@ -89,7 +90,9 @@ const STYLES: { id: OnePagerStyle; label: string; description: string }[] = [
 
 function QuoteGeneratorApp() {
   const { signOut } = useClerk();
-  const [profile, setProfile] = useState<AdvisorProfile>(loadProfile);
+  const { user } = useUser();
+  const userId = user?.id ?? "default";
+  const [profile, setProfile] = useState<AdvisorProfile>(() => loadProfile(userId));
   const [trip, setTrip] = useState<TripDetails>({
     destination: "",
     dates: "",
@@ -112,12 +115,12 @@ function QuoteGeneratorApp() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
-    setProfile(loadProfile());
-  }, []);
+    setProfile(loadProfile(userId));
+  }, [userId]);
 
   function updateProfile(field: keyof AdvisorProfile, value: string) {
     setProfile((p) => ({ ...p, [field]: value }));
-    saveProfileField(`adv-${field}`, value);
+    saveProfileField(userId, `adv-${field}`, value);
   }
 
   async function parseQuotes() {
