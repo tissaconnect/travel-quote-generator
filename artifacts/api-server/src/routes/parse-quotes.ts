@@ -1,8 +1,43 @@
 import { Router } from "express";
+import { getAuth, clerkClient } from "@clerk/express";
+import { isSubscriber } from "../lib/subscriptions";
 
 const router = Router();
 
-router.post("/parse-quotes", async (req, res) => {
+function requireAuth(req: any, res: any, next: any) {
+  const auth = getAuth(req);
+  const userId = auth?.sessionClaims?.userId || auth?.userId;
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  next();
+}
+
+async function requireSubscription(req: any, res: any, next: any) {
+  if (!process.env.STRIPE_WEBHOOK_SECRET) {
+    return next();
+  }
+  const auth = getAuth(req);
+  const userId = auth?.sessionClaims?.userId || auth?.userId;
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  try {
+    const user = await clerkClient.users.getUser(userId);
+    const email = user.emailAddresses[0]?.emailAddress ?? "";
+    if (!isSubscriber(email)) {
+      res.status(401).json({ error: "No active subscription found. Please subscribe at travolo.com to continue." });
+      return;
+    }
+    next();
+  } catch {
+    res.status(500).json({ error: "Could not verify subscription" });
+  }
+}
+
+router.post("/parse-quotes", requireAuth, requireSubscription, async (req, res) => {
   const { rawText, tripDetails } = req.body as {
     rawText?: string;
     tripDetails?: { destination: string; dates: string; adults: string; nights: string };
@@ -19,6 +54,8 @@ router.post("/parse-quotes", async (req, res) => {
   }
 
   const td = tripDetails ?? { destination: "Unknown", dates: "Unknown", adults: "2", nights: "5" };
+
+  console.log(`Quote generated: ${td.destination} at ${new Date().toISOString()}`);
 
   const prompt = `You are a travel quote parser. Extract hotel options from this raw travel quote text and return ONLY valid JSON, no markdown, no explanation.
 

@@ -1,45 +1,98 @@
 import { useState, useRef, useEffect } from "react";
+import { ClerkProvider, SignIn, SignUp, Show, useClerk, useUser } from "@clerk/react";
+import { shadcn } from "@clerk/themes";
+import { Switch, Route, useLocation, Router as WouterRouter } from "wouter";
 import type { AdvisorProfile, Hotel, ParsedQuotes, TripDetails } from "./types";
 import { buildOnePager, type OnePagerStyle } from "./lib/onePager";
 
 const MAX_HOTELS = 4;
 
-function loadProfile(): AdvisorProfile {
+const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+function stripBase(path: string): string {
+  return basePath && path.startsWith(basePath)
+    ? path.slice(basePath.length) || "/"
+    : path;
+}
+
+const clerkAppearance = {
+  theme: shadcn,
+  cssLayerName: "clerk",
+  options: {
+    logoPlacement: "inside" as const,
+    logoLinkUrl: basePath || "/",
+    logoImageUrl: `${window.location.origin}${basePath}/logo.svg`,
+  },
+  variables: {
+    colorPrimary: "#c9973a",
+    colorForeground: "#1a1a1a",
+    colorMutedForeground: "#6b7280",
+    colorDanger: "#dc2626",
+    colorBackground: "#ffffff",
+    colorInput: "#f5f0e8",
+    colorInputForeground: "#1a1a1a",
+    colorNeutral: "rgba(201,151,58,0.35)",
+    fontFamily: "'DM Sans', sans-serif",
+    borderRadius: "8px",
+  },
+  elements: {
+    rootBox: "w-full flex justify-center",
+    cardBox: "bg-white rounded-xl w-[440px] max-w-full overflow-hidden shadow-lg",
+    card: "!shadow-none !border-0 !bg-transparent !rounded-none",
+    footer: "!shadow-none !border-0 !bg-transparent !rounded-none",
+    headerTitle: { color: "#0a1f2e", fontSize: "1.4rem" },
+    headerSubtitle: { color: "#6b7280" },
+    socialButtonsBlockButtonText: { color: "#1a1a1a" },
+    formFieldLabel: { color: "#6b7280", fontSize: "11px", letterSpacing: "0.1em", textTransform: "uppercase" as const },
+    footerActionLink: { color: "#c9973a" },
+    footerActionText: { color: "#6b7280" },
+    dividerText: { color: "#6b7280" },
+    identityPreviewEditButton: { color: "#c9973a" },
+    formFieldSuccessText: { color: "#059669" },
+    alertText: { color: "#dc2626" },
+    logoBox: { display: "flex", justifyContent: "center", padding: "8px 0" },
+    logoImage: { height: "36px" },
+    socialButtonsBlockButton: { border: "1px solid rgba(201,151,58,0.2)", background: "#f5f0e8" },
+    formButtonPrimary: { background: "#0a1f2e", color: "#ffffff" },
+    formFieldInput: { background: "#f5f0e8", border: "1px solid rgba(201,151,58,0.25)", color: "#1a1a1a" },
+    footerAction: { background: "transparent" },
+    dividerLine: { background: "rgba(201,151,58,0.2)" },
+    alert: { background: "#fef2f2" },
+    otpCodeFieldInput: { background: "#f5f0e8", border: "1px solid rgba(201,151,58,0.25)" },
+    formFieldRow: {},
+    main: {},
+  },
+};
+
+function loadProfile(userId: string): AdvisorProfile {
+  const p = (k: string) => localStorage.getItem(`${userId}-${k}`) ?? "";
   return {
-    name: localStorage.getItem("adv-name") ?? "",
-    agency: localStorage.getItem("adv-agency") ?? "",
-    phone: localStorage.getItem("adv-phone") ?? "",
-    email: localStorage.getItem("adv-email") ?? "",
+    name: p("adv-name"),
+    agency: p("adv-agency"),
+    phone: p("adv-phone"),
+    email: p("adv-email"),
   };
 }
 
-function saveProfileField(key: string, value: string) {
-  localStorage.setItem(key, value);
+function saveProfileField(userId: string, key: string, value: string) {
+  localStorage.setItem(`${userId}-${key}`, value);
 }
 
-const STYLES: { id: OnePagerStyle; label: string; description: string; preview: string }[] = [
-  {
-    id: "luxury",
-    label: "Luxury",
-    description: "Dark navy & gold, premium feel",
-    preview: "bg-[#0a1f2e]",
-  },
-  {
-    id: "editorial",
-    label: "Editorial",
-    description: "Cream tones, light & airy",
-    preview: "bg-[#faf8f5]",
-  },
-  {
-    id: "bold",
-    label: "Bold",
-    description: "Clean white, strong accents",
-    preview: "bg-white",
-  },
+const STYLES: { id: OnePagerStyle; label: string; description: string }[] = [
+  { id: "luxury", label: "Luxury", description: "Dark navy & gold, premium feel" },
+  { id: "editorial", label: "Editorial", description: "Cream tones, light & airy" },
+  { id: "bold", label: "Bold", description: "Clean white, strong accents" },
 ];
 
-export default function App() {
-  const [profile, setProfile] = useState<AdvisorProfile>(loadProfile);
+// ─── MAIN QUOTE GENERATOR APP ─────────────────────────────────────────────────
+
+function QuoteGeneratorApp() {
+  const { signOut } = useClerk();
+  const { user } = useUser();
+  const userId = user?.id ?? "default";
+  const [profile, setProfile] = useState<AdvisorProfile>(() => loadProfile(userId));
   const [trip, setTrip] = useState<TripDetails>({
     destination: "",
     dates: "",
@@ -62,12 +115,12 @@ export default function App() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
-    setProfile(loadProfile());
-  }, []);
+    setProfile(loadProfile(userId));
+  }, [userId]);
 
   function updateProfile(field: keyof AdvisorProfile, value: string) {
     setProfile((p) => ({ ...p, [field]: value }));
-    saveProfileField(`adv-${field}`, value);
+    saveProfileField(userId, `adv-${field}`, value);
   }
 
   async function parseQuotes() {
@@ -82,7 +135,7 @@ export default function App() {
     setPreviewHtml(null);
 
     try {
-      const res = await fetch("/api/parse-quotes", {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/parse-quotes`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rawText, tripDetails: trip }),
@@ -154,7 +207,7 @@ export default function App() {
   }
 
   async function saveQuoteToServer(html: string): Promise<string> {
-    const res = await fetch("/api/save-quote", {
+    const res = await fetch(`${import.meta.env.BASE_URL}api/save-quote`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ html }),
@@ -169,7 +222,7 @@ export default function App() {
     setPrinting(true);
     try {
       const id = await saveQuoteToServer(previewHtml);
-      const url = `${window.location.origin}/api/quote/${id}`;
+      const url = `${window.location.origin}${import.meta.env.BASE_URL}api/quote/${id}`;
       const win = window.open(url, "_blank");
       if (win) {
         win.onload = () => {
@@ -177,7 +230,6 @@ export default function App() {
         };
       }
     } catch {
-      // fallback: use srcdoc approach
       const win = window.open("", "_blank");
       if (win) {
         win.document.write(previewHtml);
@@ -194,7 +246,7 @@ export default function App() {
     setShareStatus("copying");
     try {
       const id = await saveQuoteToServer(previewHtml);
-      const url = `${window.location.origin}/api/quote/${id}`;
+      const url = `${window.location.origin}${import.meta.env.BASE_URL}api/quote/${id}`;
       await navigator.clipboard.writeText(url);
       setShareStatus("copied");
       setTimeout(() => setShareStatus("idle"), 3000);
@@ -213,13 +265,29 @@ export default function App() {
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "2rem 1.5rem 4rem" }}>
 
         {/* Header */}
-        <header style={{ textAlign: "center", marginBottom: "2.5rem" }}>
-          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "2rem", color: "#0a1f2e", letterSpacing: "0.15em", fontWeight: 500 }}>
-            Se7en <span style={{ color: "#c9973a" }}>Seas</span> Advisory
+        <header style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "2.5rem", position: "relative" }}>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "2rem", color: "#0a1f2e", letterSpacing: "0.15em", fontWeight: 500 }}>
+              Travolo<span style={{ color: "#c9973a" }}>.</span>
+            </div>
+            <div style={{ fontSize: 12, letterSpacing: "0.2em", textTransform: "uppercase", color: "#6b7280", marginTop: 4 }}>
+              Quote Generator
+            </div>
           </div>
-          <div style={{ fontSize: 12, letterSpacing: "0.2em", textTransform: "uppercase", color: "#6b7280", marginTop: 4 }}>
-            Quote Generator
-          </div>
+          <button
+            onClick={() => signOut()}
+            style={{
+              position: "absolute", right: 0, top: "50%", transform: "translateY(-50%)",
+              background: "transparent", border: "1px solid rgba(201,151,58,0.25)",
+              borderRadius: 6, padding: "6px 14px", fontSize: 12, color: "#6b7280",
+              cursor: "pointer", fontFamily: "'DM Sans', sans-serif", letterSpacing: "0.03em",
+              transition: "all 0.2s",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#c9973a"; e.currentTarget.style.color = "#0a1f2e"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(201,151,58,0.25)"; e.currentTarget.style.color = "#6b7280"; }}
+          >
+            Sign Out
+          </button>
         </header>
 
         {/* Advisor Profile */}
@@ -229,7 +297,7 @@ export default function App() {
               <Input value={profile.name} onChange={(v) => updateProfile("name", v)} placeholder="Monique Robinson" />
             </Field>
             <Field label="Agency Name">
-              <Input value={profile.agency} onChange={(v) => updateProfile("agency", v)} placeholder="Se7en Seas Advisory" />
+              <Input value={profile.agency} onChange={(v) => updateProfile("agency", v)} placeholder="Your Agency Name" />
             </Field>
             <Field label="Phone / Text">
               <Input value={profile.phone} onChange={(v) => updateProfile("phone", v)} placeholder="+1.585.503.1066" />
@@ -417,6 +485,195 @@ export default function App() {
         )}
       </div>
     </div>
+  );
+}
+
+// ─── AUTH PAGES ───────────────────────────────────────────────────────────────
+
+function SignInPage() {
+  return (
+    <div style={{ minHeight: "100vh", background: "#f5f0e8", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "2rem 1rem" }}>
+      <SignIn
+        routing="path"
+        path={`${basePath}/sign-in`}
+        signUpUrl={`${basePath}/sign-up`}
+      />
+    </div>
+  );
+}
+
+function SignUpPage() {
+  return (
+    <div style={{ minHeight: "100vh", background: "#f5f0e8", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "2rem 1rem" }}>
+      <SignUp
+        routing="path"
+        path={`${basePath}/sign-up`}
+        signInUrl={`${basePath}/sign-in`}
+      />
+    </div>
+  );
+}
+
+function SubscriptionGate({ children }: { children: React.ReactNode }) {
+  const [status, setStatus] = useState<"loading" | "active" | "inactive">("loading");
+
+  useEffect(() => {
+    fetch(`${import.meta.env.BASE_URL}api/subscription-status`)
+      .then((r) => r.json())
+      .then((d) => setStatus(d.hasSubscription ? "active" : "inactive"))
+      .catch(() => setStatus("inactive"));
+  }, []);
+
+  if (status === "loading") {
+    return (
+      <div style={{ minHeight: "100vh", background: "#f5f0e8", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ fontSize: 14, color: "#9ca3af", fontFamily: "'DM Sans', sans-serif" }}>Loading…</div>
+      </div>
+    );
+  }
+
+  if (status === "inactive") {
+    return (
+      <div style={{ minHeight: "100vh", background: "#f5f0e8", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "2rem 1rem", fontFamily: "'DM Sans', sans-serif" }}>
+        <div style={{ textAlign: "center", marginBottom: "2.5rem" }}>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "2rem", color: "#0a1f2e", letterSpacing: "0.15em", fontWeight: 500 }}>
+            Travolo<span style={{ color: "#c9973a" }}>.</span>
+          </div>
+        </div>
+        <div style={{ background: "#fff", border: "1px solid rgba(201,151,58,0.2)", borderRadius: 14, padding: "2.5rem 2rem", width: "100%", maxWidth: 420, boxShadow: "0 4px 24px rgba(10,31,46,0.07)", textAlign: "center" }}>
+          <div style={{ fontSize: "2rem", marginBottom: "1rem" }}>🔒</div>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "#0a1f2e", marginBottom: 8 }}>
+            No active subscription
+          </div>
+          <div style={{ fontSize: 13, color: "#6b7280", marginBottom: "1.75rem", lineHeight: 1.6 }}>
+            Start your free trial to access the Travolo quote generator.
+          </div>
+          <a
+            href="https://buy.stripe.com/test_eVqbJ1b5P4iY32p76Zds400"
+            style={{
+              display: "block", width: "100%", padding: "13px 24px", borderRadius: 8,
+              background: "#c9973a", color: "#fff", fontFamily: "'DM Sans', sans-serif",
+              fontSize: 15, fontWeight: 500, cursor: "pointer", letterSpacing: "0.03em",
+              textDecoration: "none", textAlign: "center", boxSizing: "border-box",
+            }}
+          >
+            Start Your Free Trial
+          </a>
+          <div style={{ marginTop: "1.25rem", fontSize: 12, color: "#9ca3af" }}>
+            $9/month · 14-day free trial · Cancel anytime
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+}
+
+function HomeRoute() {
+  return (
+    <>
+      <Show when="signed-in">
+        <SubscriptionGate>
+          <QuoteGeneratorApp />
+        </SubscriptionGate>
+      </Show>
+      <Show when="signed-out">
+        <BrandedSignInScreen />
+      </Show>
+    </>
+  );
+}
+
+function BrandedSignInScreen() {
+  const [, setLocation] = useLocation();
+  return (
+    <div style={{ minHeight: "100vh", background: "#f5f0e8", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "2rem 1rem" }}>
+      <div style={{ textAlign: "center", marginBottom: "2.5rem" }}>
+        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "2.8rem", color: "#0a1f2e", letterSpacing: "0.15em", fontWeight: 500, lineHeight: 1 }}>
+          Travolo<span style={{ color: "#c9973a" }}>.</span>
+        </div>
+        <div style={{ fontSize: 11, letterSpacing: "0.22em", textTransform: "uppercase", color: "#6b7280", marginTop: 8 }}>
+          Quote Generator
+        </div>
+      </div>
+      <div style={{ background: "#fff", border: "1px solid rgba(201,151,58,0.2)", borderRadius: 14, padding: "2.5rem 2rem", width: "100%", maxWidth: 420, boxShadow: "0 4px 24px rgba(10,31,46,0.07)", textAlign: "center" }}>
+        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "#0a1f2e", marginBottom: 8 }}>
+          Sign in to Travolo
+        </div>
+        <div style={{ fontSize: 13, color: "#6b7280", marginBottom: "1.75rem", lineHeight: 1.5 }}>
+          Welcome back — your clients are waiting
+        </div>
+        <button
+          onClick={() => setLocation("/sign-in")}
+          style={{
+            width: "100%", padding: "13px 24px", borderRadius: 8, border: "none",
+            background: "#0a1f2e", color: "#fff", fontFamily: "'DM Sans', sans-serif",
+            fontSize: 15, fontWeight: 500, cursor: "pointer", letterSpacing: "0.03em",
+            transition: "background 0.2s",
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = "#122d42"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "#0a1f2e"; }}
+        >
+          Sign In
+        </button>
+        <div style={{ marginTop: "1.25rem", fontSize: 13, color: "#9ca3af" }}>
+          Don't have an account?{" "}
+          <span
+            onClick={() => setLocation("/sign-up")}
+            style={{ color: "#c9973a", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
+          >
+            Sign up
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── CLERK PROVIDER + ROUTER ──────────────────────────────────────────────────
+
+function ClerkProviderWithRoutes() {
+  const [, setLocation] = useLocation();
+
+  return (
+    <ClerkProvider
+      publishableKey={clerkPubKey!}
+      proxyUrl={clerkProxyUrl}
+      appearance={clerkAppearance}
+      signInUrl={`${basePath}/sign-in`}
+      signUpUrl={`${basePath}/sign-up`}
+      localization={{
+        signIn: {
+          start: {
+            title: "Sign in to Travolo",
+            subtitle: "Welcome back — your clients are waiting",
+          },
+        },
+        signUp: {
+          start: {
+            title: "Create your Travolo account",
+            subtitle: "Start generating beautiful client quotes",
+          },
+        },
+      }}
+      routerPush={(to) => setLocation(stripBase(to))}
+      routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
+    >
+      <Switch>
+        <Route path="/" component={HomeRoute} />
+        <Route path="/sign-in/*?" component={SignInPage} />
+        <Route path="/sign-up/*?" component={SignUpPage} />
+      </Switch>
+    </ClerkProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <WouterRouter base={basePath}>
+      <ClerkProviderWithRoutes />
+    </WouterRouter>
   );
 }
 
