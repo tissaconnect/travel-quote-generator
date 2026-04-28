@@ -20,6 +20,8 @@ router.post("/parse-quotes", async (req, res) => {
 
   const td = tripDetails ?? { destination: "Unknown", dates: "Unknown", adults: "2", nights: "5" };
 
+  console.log(`Quote generated: ${td.destination} at ${new Date().toISOString()}`);
+
   const prompt = `You are a travel quote parser. Extract hotel options from this raw travel quote text and return ONLY valid JSON, no markdown, no explanation.
 
 Trip Details:
