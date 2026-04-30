@@ -571,6 +571,13 @@ function SubscriptionGate({ children }: { children: React.ReactNode }) {
 }
 
 function HomeRoute() {
+  useEffect(() => {
+    window.location.replace("/landing.html");
+  }, []);
+  return null;
+}
+
+function AppRoute() {
   return (
     <>
       <Show when="signed-in">
@@ -643,6 +650,8 @@ function ClerkProviderWithRoutes() {
       appearance={clerkAppearance}
       signInUrl={`${basePath}/sign-in`}
       signUpUrl={`${basePath}/sign-up`}
+      afterSignInUrl={`${basePath}/app`}
+      afterSignUpUrl={`${basePath}/app`}
       localization={{
         signIn: {
           start: {
@@ -662,6 +671,7 @@ function ClerkProviderWithRoutes() {
     >
       <Switch>
         <Route path="/" component={HomeRoute} />
+        <Route path="/app" component={AppRoute} />
         <Route path="/sign-in/*?" component={SignInPage} />
         <Route path="/sign-up/*?" component={SignUpPage} />
       </Switch>
