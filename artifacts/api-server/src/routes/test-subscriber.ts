@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { addSubscriber } from "../lib/subscriptions";
+import { addSubscriber, getAllSubscribers } from "../lib/subscriptions";
 
 const router = Router();
 
@@ -10,8 +10,9 @@ router.get("/add-test-subscriber", (req, res) => {
     return;
   }
   addSubscriber(email);
-  console.log(`[test] Manually added subscriber: ${email}`);
-  res.json({ ok: true, message: `${email} added to activeSubscribers` });
+  const all = getAllSubscribers();
+  console.log(`[test] Manually added subscriber: ${email} | activeSubscribers now: [${all.join(", ")}]`);
+  res.json({ ok: true, added: email, activeSubscribers: all });
 });
 
 export default router;

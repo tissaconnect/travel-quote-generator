@@ -8,6 +8,7 @@ router.post(
   "/webhooks/stripe",
   raw({ type: "application/json" }),
   async (req, res) => {
+    console.log(`[Stripe webhook] *** Request arrived *** method=${req.method} sig-header-present=${!!req.headers["stripe-signature"]}`);
     const secret = process.env.STRIPE_WEBHOOK_SECRET;
 
     if (!secret) {

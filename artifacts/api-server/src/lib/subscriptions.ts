@@ -11,3 +11,7 @@ export function removeSubscriber(email: string) {
 export function isSubscriber(email: string): boolean {
   return activeSubscribers.has(email.toLowerCase());
 }
+
+export function getAllSubscribers(): string[] {
+  return Array.from(activeSubscribers);
+}
