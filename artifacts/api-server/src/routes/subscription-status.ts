@@ -13,11 +13,6 @@ router.get("/subscription-status", async (req, res) => {
     return;
   }
 
-  if (!process.env.STRIPE_WEBHOOK_SECRET) {
-    res.json({ hasSubscription: true, bypass: true });
-    return;
-  }
-
   try {
     const user = await clerkClient.users.getUser(userId);
     const email = user.emailAddresses[0]?.emailAddress ?? "";
