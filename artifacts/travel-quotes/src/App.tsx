@@ -66,8 +66,12 @@ const clerkAppearance = {
   },
 };
 
+function profileKey(userId: string, k: string): string {
+  return `user_${userId}_${k}`;
+}
+
 function loadProfile(userId: string): AdvisorProfile {
-  const p = (k: string) => localStorage.getItem(`${userId}-${k}`) ?? "";
+  const p = (k: string) => localStorage.getItem(profileKey(userId, k)) ?? "";
   return {
     name: p("adv-name"),
     agency: p("adv-agency"),
@@ -77,7 +81,7 @@ function loadProfile(userId: string): AdvisorProfile {
 }
 
 function saveProfileField(userId: string, key: string, value: string) {
-  localStorage.setItem(`${userId}-${key}`, value);
+  localStorage.setItem(profileKey(userId, key), value);
 }
 
 const STYLES: { id: OnePagerStyle; label: string; description: string }[] = [
