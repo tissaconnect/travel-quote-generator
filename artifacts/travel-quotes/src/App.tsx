@@ -479,6 +479,7 @@ function QuoteGeneratorApp() {
             )}
             <iframe
               ref={iframeRef}
+              sandbox=""
               style={{
                 width: "100%", border: "none", borderRadius: 12, overflow: "hidden",
                 boxShadow: "0 8px 40px rgba(10,31,46,0.15)", minHeight: 700,

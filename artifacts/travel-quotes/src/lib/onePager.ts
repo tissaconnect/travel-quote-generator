@@ -2,6 +2,16 @@ import type { AdvisorProfile, Hotel, TripDetails } from "../types";
 
 export type OnePagerStyle = "luxury" | "editorial" | "bold";
 
+function escapeHtml(value: string | undefined | null): string {
+  if (!value) return "";
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;");
+}
+
 function highlightEmoji(text: string): string {
   const t = text.toLowerCase();
   if (/beach|ocean|sea|coastal|waterfront/.test(t)) return "🏖️";
@@ -231,6 +241,7 @@ export function buildOnePager(
   advisorNote?: string,
   style: OnePagerStyle = "luxury"
 ): string {
+  const e = escapeHtml;
   const others = allHotels.filter((h) => h.name !== selected.name);
 
   const styles =
@@ -242,7 +253,7 @@ export function buildOnePager(
 
   // Price range across all hotels
   const prices = allHotels.map((h) => h.totalPrice).filter(Boolean);
-  const priceRange = prices.length > 1 ? `${prices[prices.length - 1]} – ${prices[0]}` : prices[0] || "—";
+  const priceRange = prices.length > 1 ? `${e(prices[prices.length - 1])} – ${e(prices[0])}` : e(prices[0]) || "—";
 
   // Build hotel cards HTML
   const allCards = allHotels
@@ -250,14 +261,14 @@ export function buildOnePager(
       const isSelected = hotel.name === selected.name;
       const stars = "★".repeat(hotel.stars || 4);
       const highlights = (hotel.highlights || hotel.pros || []).slice(0, 4);
-      const pills = highlights.map((h) => `<span class="pill">${highlightEmoji(h)} ${h}</span>`).join(" ");
-      const tags = [hotel.category].filter(Boolean).map((t) => `<span class="type-tag">${t}</span>`).join(" ");
+      const pills = highlights.map((h) => `<span class="pill">${highlightEmoji(h)} ${e(h)}</span>`).join(" ");
+      const tags = [hotel.category].filter(Boolean).map((t) => `<span class="type-tag">${e(t)}</span>`).join(" ");
 
       const isAmberRefund = hotel.refundableBy
         ? /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d+/i.test(hotel.refundableBy)
         : false;
       const refundBadge = hotel.refundableBy
-        ? `<span class="refund-badge ${isAmberRefund ? "refund-amber" : "refund-green"}">Cancel by ${hotel.refundableBy}</span>`
+        ? `<span class="refund-badge ${isAmberRefund ? "refund-amber" : "refund-green"}">Cancel by ${e(hotel.refundableBy)}</span>`
         : "";
 
       return `
@@ -265,18 +276,18 @@ export function buildOnePager(
         ${isSelected ? `<div class="selection-banner">★ Client Selection</div>` : ""}
         <div class="hotel-card-inner">
           <div class="hotel-col-left">
-            ${hotel.advisorPick ? `<div class="category-label">⭐ Advisor's Pick</div>` : `<div class="category-label">${hotel.category || "Option"}</div>`}
-            <div class="hotel-name">${hotel.name}</div>
+            ${hotel.advisorPick ? `<div class="category-label">⭐ Advisor's Pick</div>` : `<div class="category-label">${e(hotel.category) || "Option"}</div>`}
+            <div class="hotel-name">${e(hotel.name)}</div>
             <div class="hotel-stars">${stars}</div>
             <div class="type-tags">${tags}</div>
           </div>
           <div class="hotel-col-mid">
-            <div class="hotel-vibe">${hotel.vibe || ""}</div>
+            <div class="hotel-vibe">${e(hotel.vibe)}</div>
             <div class="highlight-pills">${pills}</div>
           </div>
           <div class="hotel-col-right">
-            <div class="price-main">${hotel.totalPrice}</div>
-            ${hotel.perPersonPrice ? `<div class="price-per">${hotel.perPersonPrice} / person</div>` : `<div class="price-per">&nbsp;</div>`}
+            <div class="price-main">${e(hotel.totalPrice)}</div>
+            ${hotel.perPersonPrice ? `<div class="price-per">${e(hotel.perPersonPrice)} / person</div>` : `<div class="price-per">&nbsp;</div>`}
             ${refundBadge}
           </div>
         </div>
@@ -288,16 +299,16 @@ export function buildOnePager(
   const tableRows = allHotels
     .map((hotel) => {
       const isSelected = hotel.name === selected.name;
-      const nameCell = isSelected ? `<strong>${hotel.name}</strong>` : hotel.name;
+      const nameCell = isSelected ? `<strong>${e(hotel.name)}</strong>` : e(hotel.name);
       const aiCheck = hasAllInclusive(hotel) ? `<span class="ai-check">✓</span>` : `<span style="color:#d1d5db;">—</span>`;
       return `
       <tr${isSelected ? ` style="background:#fffbf4;"` : ""}>
         <td>${nameCell}</td>
         <td>${"★".repeat(hotel.stars || 4)}</td>
-        <td style="font-weight:500;color:#c9973a;">${hotel.totalPrice}</td>
-        <td style="font-style:italic;font-size:11px;">${hotel.vibe || "—"}</td>
+        <td style="font-weight:500;color:#c9973a;">${e(hotel.totalPrice)}</td>
+        <td style="font-style:italic;font-size:11px;">${e(hotel.vibe) || "—"}</td>
         <td style="text-align:center;">${aiCheck}</td>
-        <td>${hotel.refundableBy ? hotel.refundableBy : "—"}</td>
+        <td>${hotel.refundableBy ? e(hotel.refundableBy) : "—"}</td>
         <td style="font-size:11px;">${bestForLabel(hotel.category)}</td>
       </tr>`;
     })
@@ -312,7 +323,7 @@ export function buildOnePager(
   return `<!DOCTYPE html>
 <html lang="en"><head>
 <meta charset="UTF-8">
-<title>Travolo Quote — ${trip.destination}</title>
+<title>Travolo Quote — ${e(trip.destination)}</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
   *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}
@@ -325,20 +336,20 @@ export function buildOnePager(
   <div class="hero">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;">
       <div>
-        <div class="hero-agency">${adv.agency || "Your Agency"}</div>
+        <div class="hero-agency">${e(adv.agency) || "Your Agency"}</div>
         <div class="hero-tagline">Powered by Travolo</div>
       </div>
       <div style="text-align:right;font-size:11px;color:#9ca3af;">
-        Prepared for <strong style="color:inherit;">${trip.clients}</strong>
+        Prepared for <strong style="color:inherit;">${e(trip.clients)}</strong>
       </div>
     </div>
     <div class="hero-divider"></div>
-    <div class="hero-destination">${trip.destination}</div>
-    <div class="hero-dates">${trip.dates}</div>
+    <div class="hero-destination">${e(trip.destination)}</div>
+    <div class="hero-dates">${e(trip.dates)}</div>
     <div class="stats-bar">
-      <div class="stat"><div class="stat-label">Dates</div><div class="stat-value">${trip.dates || "—"}</div></div>
-      <div class="stat"><div class="stat-label">Duration</div><div class="stat-value">${trip.nights} nights</div></div>
-      <div class="stat"><div class="stat-label">Travelers</div><div class="stat-value">${trip.adults} adults</div></div>
+      <div class="stat"><div class="stat-label">Dates</div><div class="stat-value">${e(trip.dates) || "—"}</div></div>
+      <div class="stat"><div class="stat-label">Duration</div><div class="stat-value">${e(trip.nights)} nights</div></div>
+      <div class="stat"><div class="stat-label">Travelers</div><div class="stat-value">${e(trip.adults)} adults</div></div>
       <div class="stat"><div class="stat-label">Options</div><div class="stat-value">${allHotels.length} properties</div></div>
       <div class="stat"><div class="stat-label">Price Range</div><div class="stat-value">${priceRange}</div></div>
     </div>
@@ -373,30 +384,30 @@ export function buildOnePager(
   <!-- ADVISOR NOTE -->
   <div class="advisor-note">
     <div class="advisor-note-label">Advisor's Note</div>
-    <div class="advisor-note-text">${advisorNote}</div>
+    <div class="advisor-note-text">${e(advisorNote)}</div>
   </div>` : ""}
 
   <!-- FOOTER -->
   <div class="footer">
     <div class="footer-left">
-      <div class="footer-adv-name">${adv.name}</div>
-      <div class="footer-adv-title">${adv.agency}</div>
+      <div class="footer-adv-name">${e(adv.name)}</div>
+      <div class="footer-adv-title">${e(adv.agency)}</div>
       <div class="footer-contact">
-        ${adv.phone ? `📞 ${adv.phone}<br>` : ""}
-        ${adv.email ? `✉ ${adv.email}` : ""}
+        ${adv.phone ? `📞 ${e(adv.phone)}<br>` : ""}
+        ${adv.email ? `✉ ${e(adv.email)}` : ""}
       </div>
     </div>
     <div class="footer-right">
       <div class="footer-notes-label">Important Notes</div>
       <div class="footer-notes-text">
-        Prices reflect total package for ${trip.adults} adults · ${trip.nights} nights · Subject to availability.<br>
+        Prices reflect total package for ${e(trip.adults)} adults · ${e(trip.nights)} nights · Subject to availability.<br>
         Airfare, transfers &amp; travel insurance not included.<br>
         ${cancelNote}
       </div>
     </div>
   </div>
   <div class="sub-footer">
-    <div class="sub-footer-text">Quote prepared by ${adv.name} · ${adv.agency} · ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
+    <div class="sub-footer-text">Quote prepared by ${e(adv.name)} · ${e(adv.agency)} · ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
   </div>
 
 </div>
