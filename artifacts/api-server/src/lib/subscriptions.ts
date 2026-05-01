@@ -48,3 +48,12 @@ export async function getAllSubscribers(): Promise<SubscriberRecord[]> {
   const store = await load();
   return Object.values(store);
 }
+
+export async function setSubscriberStatus(email: string, status: "active" | "inactive"): Promise<void> {
+  const normalised = email.toLowerCase().trim();
+  const store = await load();
+  if (store[normalised]) {
+    store[normalised] = { ...store[normalised], status };
+    await save(store);
+  }
+}
