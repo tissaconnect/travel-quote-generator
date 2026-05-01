@@ -283,20 +283,46 @@ function QuoteGeneratorApp() {
               Quote Generator
             </div>
           </div>
-          <button
-            onClick={() => signOut()}
-            style={{
-              position: "absolute", right: 0, top: "50%", transform: "translateY(-50%)",
-              background: "transparent", border: "1px solid rgba(201,151,58,0.25)",
-              borderRadius: 6, padding: "6px 14px", fontSize: 12, color: "#6b7280",
-              cursor: "pointer", fontFamily: "'DM Sans', sans-serif", letterSpacing: "0.03em",
-              transition: "all 0.2s",
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#c9973a"; e.currentTarget.style.color = "#0a1f2e"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(201,151,58,0.25)"; e.currentTarget.style.color = "#6b7280"; }}
-          >
-            Sign Out
-          </button>
+          <div style={{ position: "absolute", right: 0, top: "50%", transform: "translateY(-50%)", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+            <button
+              onClick={async () => {
+                try {
+                  const r = await fetch(`${import.meta.env.BASE_URL}api/customer-portal`);
+                  const data = await r.json();
+                  if (data.url) {
+                    window.location.href = data.url;
+                  } else {
+                    alert(data.error ?? "Could not open subscription portal.");
+                  }
+                } catch {
+                  alert("Could not reach the server. Please try again.");
+                }
+              }}
+              style={{
+                background: "transparent", border: "none", padding: 0, fontSize: 11,
+                color: "#c9973a", cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                letterSpacing: "0.03em", textDecoration: "underline", textUnderlineOffset: 2,
+                transition: "color 0.2s",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = "#a37a2a"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = "#c9973a"; }}
+            >
+              Manage Subscription
+            </button>
+            <button
+              onClick={() => signOut()}
+              style={{
+                background: "transparent", border: "1px solid rgba(201,151,58,0.25)",
+                borderRadius: 6, padding: "6px 14px", fontSize: 12, color: "#6b7280",
+                cursor: "pointer", fontFamily: "'DM Sans', sans-serif", letterSpacing: "0.03em",
+                transition: "all 0.2s",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#c9973a"; e.currentTarget.style.color = "#0a1f2e"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(201,151,58,0.25)"; e.currentTarget.style.color = "#6b7280"; }}
+            >
+              Sign Out
+            </button>
+          </div>
         </header>
 
         {/* Advisor Profile */}

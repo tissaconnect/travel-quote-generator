@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import customerPortalRouter from "./customer-portal";
 import healthRouter from "./health";
 import parseQuotesRouter from "./parse-quotes";
 import profileRouter from "./profile";
@@ -7,6 +8,7 @@ import subscriptionStatusRouter from "./subscription-status";
 
 const router: IRouter = Router();
 
+router.use(customerPortalRouter);
 router.use(healthRouter);
 router.use(parseQuotesRouter);
 router.use(profileRouter);
