@@ -549,7 +549,7 @@ function SubscriptionGate({ children }: { children: React.ReactNode }) {
             Start your free trial to access the Travolo quote generator.
           </div>
           <a
-            href="https://buy.stripe.com/test_eVqbJ1b5P4iY32p76Zds400"
+            href="https://buy.stripe.com/8x228qgWs4UTd4t8ke4c801"
             style={{
               display: "block", width: "100%", padding: "13px 24px", borderRadius: 8,
               background: "#c9973a", color: "#fff", fontFamily: "'DM Sans', sans-serif",
