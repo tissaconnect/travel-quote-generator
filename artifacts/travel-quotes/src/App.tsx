@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { ClerkProvider, SignIn, SignUp, Show, useClerk, useUser } from "@clerk/react";
+import { ClerkProvider, SignIn, SignUp, Show, useClerk } from "@clerk/react";
 import { shadcn } from "@clerk/themes";
 import { Switch, Route, useLocation, Router as WouterRouter } from "wouter";
 import type { AdvisorProfile, Hotel, ParsedQuotes, TripDetails } from "./types";
@@ -66,23 +66,7 @@ const clerkAppearance = {
   },
 };
 
-function profileKey(userId: string, k: string): string {
-  return `user_${userId}_${k}`;
-}
-
-function loadProfile(userId: string): AdvisorProfile {
-  const p = (k: string) => localStorage.getItem(profileKey(userId, k)) ?? "";
-  return {
-    name: p("adv-name"),
-    agency: p("adv-agency"),
-    phone: p("adv-phone"),
-    email: p("adv-email"),
-  };
-}
-
-function saveProfileField(userId: string, key: string, value: string) {
-  localStorage.setItem(profileKey(userId, key), value);
-}
+localStorage.clear();
 
 const STYLES: { id: OnePagerStyle; label: string; description: string }[] = [
   { id: "luxury", label: "Luxury", description: "Dark navy & gold, premium feel" },
@@ -94,9 +78,7 @@ const STYLES: { id: OnePagerStyle; label: string; description: string }[] = [
 
 function QuoteGeneratorApp() {
   const { signOut } = useClerk();
-  const { user } = useUser();
-  const userId = user?.id ?? "default";
-  const [profile, setProfile] = useState<AdvisorProfile>(() => loadProfile(userId));
+  const [profile, setProfile] = useState<AdvisorProfile>({ name: "", agency: "", phone: "", email: "" });
   const [trip, setTrip] = useState<TripDetails>({
     destination: "",
     dates: "",
@@ -117,14 +99,37 @@ function QuoteGeneratorApp() {
   const hotelSectionRef = useRef<HTMLDivElement>(null);
   const previewSectionRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const profileSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    setProfile(loadProfile(userId));
-  }, [userId]);
+    fetch(`${import.meta.env.BASE_URL}api/profile`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data && !data.error) {
+          setProfile({
+            name: data.name ?? "",
+            agency: data.agency ?? "",
+            phone: data.phone ?? "",
+            email: data.email ?? "",
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   function updateProfile(field: keyof AdvisorProfile, value: string) {
-    setProfile((p) => ({ ...p, [field]: value }));
-    saveProfileField(userId, `adv-${field}`, value);
+    setProfile((prev) => {
+      const updated = { ...prev, [field]: value };
+      if (profileSaveTimer.current) clearTimeout(profileSaveTimer.current);
+      profileSaveTimer.current = setTimeout(() => {
+        fetch(`${import.meta.env.BASE_URL}api/profile`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updated),
+        }).catch(() => {});
+      }, 600);
+      return updated;
+    });
   }
 
   async function parseQuotes() {
