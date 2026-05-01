@@ -27,7 +27,7 @@ async function requireSubscription(req: any, res: any, next: any) {
   try {
     const user = await clerkClient.users.getUser(userId);
     const email = user.emailAddresses[0]?.emailAddress ?? "";
-    if (!isSubscriber(email)) {
+    if (!await isSubscriber(email)) {
       res.status(401).json({ error: "No active subscription found. Please subscribe at travolo.com to continue." });
       return;
     }
