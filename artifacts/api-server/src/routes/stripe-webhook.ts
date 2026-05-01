@@ -47,7 +47,7 @@ router.post(
         try {
           const customer = await stripe.customers.retrieve(customerId) as Stripe.Customer;
           if (customer.email) {
-            addSubscriber(customer.email);
+            await addSubscriber(customer.email);
             console.log(`[Stripe webhook] Added subscriber: ${customer.email}`);
           } else {
             console.warn(`[Stripe webhook] Customer ${customerId} has no email`);
@@ -65,7 +65,7 @@ router.post(
         try {
           const customer = await stripe.customers.retrieve(customerId) as Stripe.Customer;
           if (customer.email) {
-            removeSubscriber(customer.email);
+            await removeSubscriber(customer.email);
             console.log(`[Stripe webhook] Removed subscriber: ${customer.email}`);
           } else {
             console.warn(`[Stripe webhook] Customer ${customerId} has no email`);

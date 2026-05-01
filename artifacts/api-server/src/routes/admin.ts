@@ -207,34 +207,36 @@ router.get("/admin", (_req, res) => {
 
 // ─── Admin API Endpoints ─────────────────────────────────────────────────────
 
-router.get("/admin/subscribers", (req, res) => {
+router.get("/admin/subscribers", async (req, res) => {
   if (!checkAuth(req, res)) return;
-  const subscribers = getAllSubscribers();
+  const subscribers = await getAllSubscribers();
   res.json({ count: subscribers.length, subscribers });
 });
 
-router.post("/admin/add", (req, res) => {
+router.post("/admin/add", async (req, res) => {
   if (!checkAuth(req, res)) return;
   const { email, note = "" } = req.body as { email?: string; note?: string };
   if (!email) {
     res.status(400).json({ error: "email is required" });
     return;
   }
-  addSubscriber(email, note);
+  await addSubscriber(email, note);
   console.log(`[admin] Added subscriber: ${email}${note ? ` (${note})` : ""}`);
-  res.json({ ok: true, subscribers: getAllSubscribers() });
+  const subscribers = await getAllSubscribers();
+  res.json({ ok: true, subscribers });
 });
 
-router.post("/admin/remove", (req, res) => {
+router.post("/admin/remove", async (req, res) => {
   if (!checkAuth(req, res)) return;
   const { email } = req.body as { email?: string };
   if (!email) {
     res.status(400).json({ error: "email is required" });
     return;
   }
-  removeSubscriber(email);
+  await removeSubscriber(email);
   console.log(`[admin] Removed subscriber: ${email}`);
-  res.json({ ok: true, subscribers: getAllSubscribers() });
+  const subscribers = await getAllSubscribers();
+  res.json({ ok: true, subscribers });
 });
 
 export default router;

@@ -16,11 +16,11 @@ router.get("/subscription-status", async (req, res) => {
   try {
     const user = await clerkClient.users.getUser(userId);
     const email = user.emailAddresses[0]?.emailAddress ?? "";
-    const subscribed = isSubscriber(email);
-    console.log(`[subscription-status] Checking email: "${email}" | found in activeSubscribers: ${subscribed}`);
+    const subscribed = await isSubscriber(email);
+    console.log(`[subscription-status] Checking email: "${email}" | active in DB: ${subscribed}`);
     res.json({ hasSubscription: subscribed, email });
   } catch (err) {
-    console.error("Failed to fetch user for subscription check:", err);
+    console.error("Failed to verify subscription status:", err);
     res.status(500).json({ error: "Could not verify subscription status" });
   }
 });

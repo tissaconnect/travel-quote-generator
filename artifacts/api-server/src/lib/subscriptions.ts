@@ -1,31 +1,50 @@
+import Client from "@replit/database";
+
+const db = new Client();
+const STORE_KEY = "travolo_subscribers";
+
 export interface SubscriberRecord {
   email: string;
-  addedAt: string;
+  subscribedAt: string;
+  status: "active" | "inactive";
   note: string;
 }
 
-const activeSubscribers = new Map<string, SubscriberRecord>();
+type SubscriberStore = Record<string, SubscriberRecord>;
 
-export function addSubscriber(email: string, note = ""): void {
-  const key = email.toLowerCase().trim();
-  if (activeSubscribers.has(key)) {
-    if (note) {
-      const existing = activeSubscribers.get(key)!;
-      activeSubscribers.set(key, { ...existing, note });
-    }
-  } else {
-    activeSubscribers.set(key, { email: key, addedAt: new Date().toISOString(), note });
-  }
+async function load(): Promise<SubscriberStore> {
+  const result = await db.get(STORE_KEY);
+  if (!result.ok || !result.value) return {};
+  return result.value as SubscriberStore;
 }
 
-export function removeSubscriber(email: string): void {
-  activeSubscribers.delete(email.toLowerCase().trim());
+async function save(store: SubscriberStore): Promise<void> {
+  await db.set(STORE_KEY, store);
 }
 
-export function isSubscriber(email: string): boolean {
-  return activeSubscribers.has(email.toLowerCase().trim());
+export async function addSubscriber(email: string, note = ""): Promise<void> {
+  const normalised = email.toLowerCase().trim();
+  const store = await load();
+  const existing = store[normalised];
+  store[normalised] = existing
+    ? { ...existing, status: "active", note: note || existing.note }
+    : { email: normalised, subscribedAt: new Date().toISOString(), status: "active", note };
+  await save(store);
 }
 
-export function getAllSubscribers(): SubscriberRecord[] {
-  return Array.from(activeSubscribers.values());
+export async function removeSubscriber(email: string): Promise<void> {
+  const normalised = email.toLowerCase().trim();
+  const store = await load();
+  delete store[normalised];
+  await save(store);
+}
+
+export async function isSubscriber(email: string): Promise<boolean> {
+  const store = await load();
+  return store[email.toLowerCase().trim()]?.status === "active";
+}
+
+export async function getAllSubscribers(): Promise<SubscriberRecord[]> {
+  const store = await load();
+  return Object.values(store);
 }
