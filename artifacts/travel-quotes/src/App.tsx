@@ -520,6 +520,40 @@ function QuoteGeneratorApp() {
           </div>
         )}
       </div>
+
+      {/* Footer */}
+      <footer style={{
+        borderTop: "1px solid rgba(201,151,58,0.15)",
+        padding: "14px 1.5rem",
+        textAlign: "center",
+        fontSize: 11,
+        color: "#9ca3af",
+        fontFamily: "'DM Sans', sans-serif",
+        letterSpacing: "0.02em",
+      }}>
+        Need help?{" "}
+        <a href="mailto:support@travolo.com" style={{ color: "#c9973a", textDecoration: "none" }}>support@travolo.com</a>
+        {" · "}© 2025 Travolo · Built for independent travel advisors{" · "}
+        <button
+          onClick={async () => {
+            try {
+              const r = await fetch(`${import.meta.env.BASE_URL}api/customer-portal`);
+              const data = await r.json();
+              if (data.url) { window.location.href = data.url; }
+              else { alert(data.error ?? "Could not open subscription portal."); }
+            } catch {
+              alert("Could not reach the server. Please try again.");
+            }
+          }}
+          style={{
+            background: "none", border: "none", padding: 0, fontSize: 11, color: "#c9973a",
+            cursor: "pointer", fontFamily: "'DM Sans', sans-serif", textDecoration: "underline",
+            textUnderlineOffset: 2, letterSpacing: "0.02em",
+          }}
+        >
+          Manage Subscription
+        </button>
+      </footer>
     </div>
   );
 }
