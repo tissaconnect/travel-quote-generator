@@ -329,16 +329,16 @@ function QuoteGeneratorApp() {
         <Card title="Advisor Profile">
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
             <Field label="Your Name">
-              <Input value={profile.name} onChange={(v) => updateProfile("name", v)} placeholder="Monique Robinson" />
+              <Input value={profile.name} onChange={(v) => updateProfile("name", v)} placeholder="Jane Smith" />
             </Field>
             <Field label="Agency Name">
               <Input value={profile.agency} onChange={(v) => updateProfile("agency", v)} placeholder="Your Agency Name" />
             </Field>
             <Field label="Phone / Text">
-              <Input value={profile.phone} onChange={(v) => updateProfile("phone", v)} placeholder="+1.585.503.1066" />
+              <Input value={profile.phone} onChange={(v) => updateProfile("phone", v)} placeholder="+1.555.000.0000" />
             </Field>
             <Field label="Email">
-              <Input value={profile.email} onChange={(v) => updateProfile("email", v)} placeholder="monique@sevenseas.com" type="email" />
+              <Input value={profile.email} onChange={(v) => updateProfile("email", v)} placeholder="you@youragency.com" type="email" />
             </Field>
           </div>
           <p style={{ fontSize: 12, color: "#6b7280", marginTop: "0.75rem" }}>
@@ -350,10 +350,10 @@ function QuoteGeneratorApp() {
         <Card title="Trip Details">
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
             <Field label="Destination">
-              <Input value={trip.destination} onChange={(v) => setTrip((t) => ({ ...t, destination: v }))} placeholder="Jamaica" />
+              <Input value={trip.destination} onChange={(v) => setTrip((t) => ({ ...t, destination: v }))} placeholder="e.g. Jamaica" />
             </Field>
             <Field label="Travel Dates">
-              <Input value={trip.dates} onChange={(v) => setTrip((t) => ({ ...t, dates: v }))} placeholder="December 10–15, 2025" />
+              <Input value={trip.dates} onChange={(v) => setTrip((t) => ({ ...t, dates: v }))} placeholder="e.g. Dec 10-15, 2025" />
             </Field>
             <Field label="Number of Adults">
               <Input value={trip.adults} onChange={(v) => setTrip((t) => ({ ...t, adults: v }))} placeholder="2" type="number" />
@@ -362,7 +362,7 @@ function QuoteGeneratorApp() {
               <Input value={trip.nights} onChange={(v) => setTrip((t) => ({ ...t, nights: v }))} placeholder="5" type="number" />
             </Field>
             <Field label="Client Name(s)">
-              <Input value={trip.clients} onChange={(v) => setTrip((t) => ({ ...t, clients: v }))} placeholder="Geri & Guest" />
+              <Input value={trip.clients} onChange={(v) => setTrip((t) => ({ ...t, clients: v }))} placeholder="e.g. John & Jane Smith" />
             </Field>
           </div>
         </Card>
