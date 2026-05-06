@@ -553,6 +553,10 @@ function QuoteGeneratorApp() {
         >
           Manage Subscription
         </button>
+        {" · "}
+        <a href="/privacy.html" style={{ color: "#9ca3af", textDecoration: "none", fontSize: 11 }}>Privacy Policy</a>
+        {" · "}
+        <a href="/terms.html" style={{ color: "#9ca3af", textDecoration: "none", fontSize: 11 }}>Terms of Service</a>
       </footer>
     </div>
   );
