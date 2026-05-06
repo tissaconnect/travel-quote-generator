@@ -76,8 +76,87 @@ const STYLES: { id: OnePagerStyle; label: string; description: string }[] = [
 
 // ─── MAIN QUOTE GENERATOR APP ─────────────────────────────────────────────────
 
+function HowToModal({ onClose }: { onClose: () => void }) {
+  const steps = [
+    { n: 1, title: "Fill in your profile", body: "Enter your name, agency, phone and email once. It saves automatically." },
+    { n: 2, title: "Enter trip details", body: "Destination, dates, number of adults, nights and client name." },
+    { n: 3, title: "Paste your raw quote", body: "Copy any quote text from your GDS, supplier email or notes and paste it in the box." },
+    { n: 4, title: "Beautify My Quote", body: "Click the button and Travolo will automatically extract all hotel options." },
+    { n: 5, title: "Select your hotels", body: "Choose up to 4 properties to show your client." },
+    { n: 6, title: "Pick a style", body: "Choose Luxury, Editorial or Bold depending on the trip vibe." },
+    { n: 7, title: "Download or share", body: "Print to PDF or copy a shareable link to send directly to your client." },
+  ];
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, background: "rgba(10,31,46,0.55)", zIndex: 1000,
+        display: "flex", alignItems: "center", justifyContent: "center", padding: "1.5rem",
+        backdropFilter: "blur(2px)",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "#fff", borderRadius: 16, width: "100%", maxWidth: 520,
+          boxShadow: "0 20px 60px rgba(10,31,46,0.25)", overflow: "hidden",
+          fontFamily: "'DM Sans', sans-serif",
+        }}
+      >
+        {/* Modal header */}
+        <div style={{ background: "#0a1f2e", padding: "20px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.4rem", color: "#fff", letterSpacing: "0.05em" }}>
+              How to use Travolo<span style={{ color: "#c9973a" }}>.</span>
+            </div>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", marginTop: 2, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+              7 simple steps
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              background: "rgba(255,255,255,0.08)", border: "none", color: "rgba(255,255,255,0.6)",
+              width: 32, height: 32, borderRadius: 8, cursor: "pointer", fontSize: 18,
+              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+              transition: "background 0.15s",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.15)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; }}
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+        {/* Steps */}
+        <div style={{ padding: "20px 24px 24px" }}>
+          {steps.map((s) => (
+            <div key={s.n} style={{ display: "flex", gap: 14, marginBottom: s.n < 7 ? 16 : 0, alignItems: "flex-start" }}>
+              <div style={{
+                flexShrink: 0, width: 28, height: 28, borderRadius: "50%",
+                background: "#0a1f2e", color: "#c9973a", fontSize: 12, fontWeight: 600,
+                display: "flex", alignItems: "center", justifyContent: "center", marginTop: 1,
+              }}>
+                {s.n}
+              </div>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "#0a1f2e", marginBottom: 2 }}>{s.title}</div>
+                <div style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.5 }}>{s.body}</div>
+              </div>
+            </div>
+          ))}
+          <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(201,151,58,0.15)", fontSize: 12, color: "#9ca3af", textAlign: "center" }}>
+            Questions? <a href="mailto:support@travoloapp.com" style={{ color: "#c9973a", textDecoration: "none" }}>support@travoloapp.com</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function QuoteGeneratorApp() {
   const { signOut } = useClerk();
+  const [showHelp, setShowHelp] = useState(false);
   const [profile, setProfile] = useState<AdvisorProfile>({ name: "", agency: "", phone: "", email: "" });
   const [trip, setTrip] = useState<TripDetails>({
     destination: "",
@@ -271,6 +350,7 @@ function QuoteGeneratorApp() {
 
   return (
     <div style={{ backgroundColor: "#f5f0e8", minHeight: "100vh", fontFamily: "'DM Sans', sans-serif", color: "#1a1a1a" }}>
+      {showHelp && <HowToModal onClose={() => setShowHelp(false)} />}
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "2rem 1.5rem 4rem" }}>
 
         {/* Header */}
@@ -309,19 +389,34 @@ function QuoteGeneratorApp() {
             >
               Manage Subscription
             </button>
-            <button
-              onClick={() => signOut()}
-              style={{
-                background: "transparent", border: "1px solid rgba(201,151,58,0.25)",
-                borderRadius: 6, padding: "6px 14px", fontSize: 12, color: "#6b7280",
-                cursor: "pointer", fontFamily: "'DM Sans', sans-serif", letterSpacing: "0.03em",
-                transition: "all 0.2s",
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#c9973a"; e.currentTarget.style.color = "#0a1f2e"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(201,151,58,0.25)"; e.currentTarget.style.color = "#6b7280"; }}
-            >
-              Sign Out
-            </button>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <button
+                onClick={() => setShowHelp(true)}
+                style={{
+                  background: "transparent", border: "1px solid rgba(201,151,58,0.25)",
+                  borderRadius: 6, padding: "6px 14px", fontSize: 12, color: "#6b7280",
+                  cursor: "pointer", fontFamily: "'DM Sans', sans-serif", letterSpacing: "0.03em",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#c9973a"; e.currentTarget.style.color = "#0a1f2e"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(201,151,58,0.25)"; e.currentTarget.style.color = "#6b7280"; }}
+              >
+                How to use Travolo
+              </button>
+              <button
+                onClick={() => signOut()}
+                style={{
+                  background: "transparent", border: "1px solid rgba(201,151,58,0.25)",
+                  borderRadius: 6, padding: "6px 14px", fontSize: 12, color: "#6b7280",
+                  cursor: "pointer", fontFamily: "'DM Sans', sans-serif", letterSpacing: "0.03em",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#c9973a"; e.currentTarget.style.color = "#0a1f2e"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(201,151,58,0.25)"; e.currentTarget.style.color = "#6b7280"; }}
+              >
+                Sign Out
+              </button>
+            </div>
           </div>
         </header>
 
@@ -386,7 +481,7 @@ function QuoteGeneratorApp() {
           </Field>
           <div style={{ display: "flex", gap: 10, marginTop: "1rem" }}>
             <Btn navy disabled={parsing} onClick={parseQuotes}>
-              {parsing ? <><div className="spinner" /> Parsing...</> : "✨ Parse & Extract Hotels"}
+              {parsing ? <><div className="spinner" /> Parsing...</> : "✨ Beautify My Quote"}
             </Btn>
           </div>
 
